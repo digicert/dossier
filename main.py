@@ -3,6 +3,7 @@ import datetime
 
 from cryptography import x509
 import csv
+import json
 import argparse
 import logging
 import sys
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('pem_csvs', type=argparse.FileType('r', encoding='utf-8'), nargs='+')
+parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Output format (csv or json)')
 
 args = parser.parse_args()
 
@@ -76,15 +78,17 @@ for pem_csv in args.pem_csvs:
             if cert.not_valid_after_utc >= now:
                 ocsp_resp = naive_ocsp_client.naive_fetch(cert)
 
-                is_revoked = ocsp_resp.revocation_time_utc is not None
+                is_revoked = ocsp_resp.revocation_time is not None
 
                 if is_revoked:
                     revocation_status = 'Yes'
 
-                    revocation_date = ocsp_resp.revocation_time_utc.isoformat()
+                    revocation_date = ocsp_resp.revocation_time.isoformat()
 
-                    if ocsp_resp.revocation_reason:
+                    if ocsp_resp.revocation_reason is not None:
                         revocation_reason = ocsp_resp.revocation_reason.name
+                    else:
+                        revocation_reason = 'unspecified'
                 else:
                     revocation_status = 'No'
 
@@ -103,28 +107,46 @@ for pem_csv in args.pem_csvs:
 
         cert_entry[fingerprint_key] = cert.fingerprint(hashes.SHA256()).hex()
 
-c = csv.writer(sys.stdout, lineterminator='\n')
-c.writerow(['Precertificate SHA-256 Hash', 'Certificate SHA-256 Hash', 'Subject', 'Issuer', 'Not before', 'Not after', 'Serial #', 'dNSNames', 'Is Revoked?', 'Revocation Date', 'Revocation Reason'])
+if len(all_certs) >= 10000:
+    logger.info("Over 10,000 certificates found. Writing crt.sh links to crtsh_links.txt")
 
-for serial_number, cert_entry in sorted(list(all_certs.items()), key=lambda x: x[1]['not_before'], reverse=True):
-    if not cert_entry.get('precert_fingerprint_sha256'):
-        logger.error('Missing precert_fingerprint_sha256 for serial number %s', serial_number)
+    with open("crtsh_links.txt", "w") as f:
+        for cert_entry in all_certs.values():
+            fingerprint = cert_entry.get('final_cert_fingerprint_sha256')
+            if fingerprint:
+                f.write(f"https://crt.sh/?sha256={fingerprint}\n")
 
-    if not cert_entry.get('final_cert_fingerprint_sha256'):
-        logger.error('Missing final_cert_fingerprint_sha256 for serial number %s', serial_number)
+if args.format == 'csv':
+    c = csv.writer(sys.stdout, lineterminator='\n')
+    c.writerow(['Precertificate SHA-256 Hash', 'Certificate SHA-256 Hash', 'Subject', 'Issuer', 'Not before', 'Not after', 'Serial #', 'dNSNames', 'Is Revoked?', 'Revocation Date', 'Revocation Reason'])
 
-    c.writerow([
-        cert_entry.get('precert_fingerprint_sha256', 'N/A'),
-        cert_entry.get('final_cert_fingerprint_sha256', 'N/A'),
-        cert_entry['subject'],
-        cert_entry['issuer'],
-        cert_entry['not_before'],
-        cert_entry['not_after'],
-        serial_number,
-        cert_entry['dns_names'],
-        cert_entry['revocation_status'],
-        cert_entry['revocation_date'],
-        cert_entry['revocation_reason'],
-    ])
+    for serial_number, cert_entry in sorted(list(all_certs.items()), key=lambda x: x[1]['not_before'], reverse=True):
+        if not cert_entry.get('precert_fingerprint_sha256'):
+            logger.error('Missing precert_fingerprint_sha256 for serial number %s', serial_number)
+
+        if not cert_entry.get('final_cert_fingerprint_sha256'):
+            logger.error('Missing final_cert_fingerprint_sha256 for serial number %s', serial_number)
+
+        c.writerow([
+            cert_entry.get('precert_fingerprint_sha256', 'N/A'),
+            cert_entry.get('final_cert_fingerprint_sha256', 'N/A'),
+            cert_entry['subject'],
+            cert_entry['issuer'],
+            cert_entry['not_before'],
+            cert_entry['not_after'],
+            serial_number,
+            cert_entry['dns_names'],
+            cert_entry['revocation_status'],
+            cert_entry['revocation_date'],
+            cert_entry['revocation_reason'],
+        ])
+else:
+    output_list = []
+    for serial_number, cert_entry in sorted(all_certs.items(), key=lambda x: x[1]['not_before'], reverse=True):
+        cert_entry_with_serial = {'serial_number': serial_number, **cert_entry}
+        output_list.append(cert_entry_with_serial)
+
+    json.dump(output_list, sys.stdout, indent=2)
+    sys.stdout.write('\n')
 
 sys.stderr.write(f'{year_bucket}\n')
