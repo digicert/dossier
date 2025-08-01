@@ -98,19 +98,31 @@ for pem_csv in args.pem_csvs:
                 is_revoked = ocsp_resp.revocation_time_utc is not None
 
                 if is_revoked:
-                    revocation_date = ocsp_resp.revocation_time_utc.isoformat()
-                    revocation_reason = (
-                        ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
-                    )
+                    revocation_date_dt = ocsp_resp.revocation_time_utc
+                    revocation_date = revocation_date_dt.isoformat()
+                    revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
 
-                    if args.incident:
-                        incident_time = datetime.datetime.fromisoformat(args.incident.replace("Z", "+00:00"))
-                        if revocation_date > incident_time:
+                    if incident_discovered:
+                        delta = revocation_date_dt - incident_discovered
+                        if delta > datetime.timedelta(hours=24):
                             revocation_status = "Delayed"
                         else:
                             revocation_status = "Yes"
+                    else:
+                        revocation_status = "Yes"
                 else:
-                    revocation_status = "Yes"
+                    revocation_status = "Planned"
+            else:
+                ocsp_resp = naive_ocsp_client.naive_fetch(cert)
+                is_revoked = ocsp_resp.revocation_time_utc is not None
+
+                if is_revoked:
+                    revocation_date_dt = ocsp_resp.revocation_time_utc
+                    revocation_date = revocation_date_dt.isoformat()
+                    revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
+                    revocation_status = "N/A"
+                else:
+                    revocation_status = "N/A"
 
             cert_entry['revocation_status'] = revocation_status
             cert_entry['revocation_date'] = revocation_date
