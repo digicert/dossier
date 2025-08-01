@@ -4,13 +4,13 @@ A utility to analyze PEM-encoded X.509 certificates and generate revocation and 
 # Usage
 CSV Output (default)
 ```bash
-python main.py your_cert_file.csv > output.csv
+python main.py sample_data.csv > sample_data_output.csv
 ```
 
 JSON Output
 Use the <b>--format flag</b> to specify output format
 ```bash
-python main.py your_cert_file.csv --format json > output.json
+python main.py sample_data.csv --format json > sample_data_output.json
 ```
 
 - CSV: Easy to paste into Bugzilla or reports

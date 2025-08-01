@@ -30,6 +30,13 @@ now = datetime.datetime.now(datetime.timezone.utc)
 
 year_bucket = collections.Counter()
 
+total_certs = 0
+revoked_count = 0
+expired_without_revocation_count = 0
+valid_not_revoked_count = 0
+final_without_precert = 0
+precert_without_final = 0
+
 def _get_dnsnames(cert):
     try:
         san_ext = cert.extensions.get_extension_for_oid(x509.OID_SUBJECT_ALTERNATIVE_NAME)
@@ -61,6 +68,7 @@ for pem_csv in args.pem_csvs:
             continue
 
         serial_number = hex(cert.serial_number)[2:]
+        total_certs += 1
 
         cert_entry = all_certs.get(serial_number)
         if cert_entry is None:
@@ -78,19 +86,15 @@ for pem_csv in args.pem_csvs:
             if cert.not_valid_after_utc >= now:
                 ocsp_resp = naive_ocsp_client.naive_fetch(cert)
 
-                is_revoked = ocsp_resp.revocation_time is not None
+                is_revoked = ocsp_resp.revocation_time_utc is not None
 
                 if is_revoked:
                     revocation_status = 'Yes'
 
-                    revocation_date = ocsp_resp.revocation_time.isoformat()
-
-                    if ocsp_resp.revocation_reason is not None:
-                        revocation_reason = ocsp_resp.revocation_reason.name
-                    else:
-                        revocation_reason = 'unspecified'
+                    revocation_date = ocsp_resp.revocation_time_utc.isoformat()
+                    revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else 'unspecified'
                 else:
-                    revocation_status = 'No'
+                    revocation_status = 'Planned'
 
             cert_entry['revocation_status'] = revocation_status
             cert_entry['revocation_date'] = revocation_date
@@ -107,6 +111,17 @@ for pem_csv in args.pem_csvs:
 
         cert_entry[fingerprint_key] = cert.fingerprint(hashes.SHA256()).hex()
 
+        if cert.not_valid_after_utc < now:
+            if revocation_status == 'Yes':
+                revoked_count += 1
+            else:
+                expired_without_revocation_count += 1
+        else:
+            if revocation_status == 'Yes':
+                revoked_count += 1
+            else:
+                valid_not_revoked_count += 1
+
 if len(all_certs) >= 10000:
     logger.info("Over 10,000 certificates found. Writing crt.sh links to crtsh_links.txt")
 
@@ -115,6 +130,15 @@ if len(all_certs) >= 10000:
             fingerprint = cert_entry.get('final_cert_fingerprint_sha256')
             if fingerprint:
                 f.write(f"https://crt.sh/?sha256={fingerprint}\n")
+
+for entry in all_certs.values():
+    has_final = "final_cert_fingerprint_sha256" in entry
+    has_precert = "precert_fingerprint_sha256" in entry
+
+    if has_final and not has_precert:
+        final_without_precert += 1
+    elif has_precert and not has_final:
+        precert_without_final += 1
 
 if args.format == 'csv':
     c = csv.writer(sys.stdout, lineterminator='\n')
@@ -149,4 +173,11 @@ else:
     json.dump(output_list, sys.stdout, indent=2)
     sys.stdout.write('\n')
 
+sys.stderr.write("\nSummary:\n")
 sys.stderr.write(f'{year_bucket}\n')
+sys.stderr.write(f"Total Certs: {total_certs}\n")
+sys.stderr.write(f"Revoked: {revoked_count}\n")
+sys.stderr.write(f"Expired without revocation: {expired_without_revocation_count}\n")
+sys.stderr.write(f"Still valid & not revoked: {valid_not_revoked_count}\n")
+sys.stderr.write(f"Final cert without precert: {final_without_precert}\n")
+sys.stderr.write(f"Precert without final cert: {precert_without_final}\n")
