@@ -98,7 +98,7 @@ for pem_csv in args.pem_csvs:
                 is_revoked = ocsp_resp.revocation_time_utc is not None
 
                 if is_revoked:
-                    revocation_date = ocsp_resp.revocation_time_utc
+                    revocation_date = ocsp_resp.revocation_time_utc.isoformat()
                     revocation_reason = (
                         ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
                     )
@@ -109,8 +109,8 @@ for pem_csv in args.pem_csvs:
                             revocation_status = "Delayed"
                         else:
                             revocation_status = "Yes"
-                    else:
-                        revocation_status = "Yes"
+                else:
+                    revocation_status = "Yes"
 
             cert_entry['revocation_status'] = revocation_status
             cert_entry['revocation_date'] = revocation_date
