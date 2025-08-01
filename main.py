@@ -21,10 +21,19 @@ logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser()
 parser.add_argument('pem_csvs', type=argparse.FileType('r', encoding='utf-8'), nargs='+')
 parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Output format (csv or json)')
+parser.add_argument('--incident', help="Optional incident discovery datetime in ISO 8601 (e.g. 2025-07-29T15:00:00Z)")
 
 args = parser.parse_args()
 
 all_certs = {}
+
+incident_discovered = None
+if args.incident:
+    try:
+        incident_discovered = datetime.datetime.fromisoformat(args.incident.replace("Z", "+00:00"))
+    except ValueError:
+        logger.error("Invalid incident datetime format. Use ISO 8601 like '2025-07-29T15:00:00Z'.")
+        sys.exit(1)
 
 now = datetime.datetime.now(datetime.timezone.utc)
 
@@ -89,12 +98,19 @@ for pem_csv in args.pem_csvs:
                 is_revoked = ocsp_resp.revocation_time_utc is not None
 
                 if is_revoked:
-                    revocation_status = 'Yes'
+                    revocation_date = ocsp_resp.revocation_time_utc
+                    revocation_reason = (
+                        ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
+                    )
 
-                    revocation_date = ocsp_resp.revocation_time_utc.isoformat()
-                    revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else 'unspecified'
-                else:
-                    revocation_status = 'Planned'
+                    if args.incident:
+                        incident_time = datetime.datetime.fromisoformat(args.incident.replace("Z", "+00:00"))
+                        if revocation_date > incident_time:
+                            revocation_status = "Delayed"
+                        else:
+                            revocation_status = "Yes"
+                    else:
+                        revocation_status = "Yes"
 
             cert_entry['revocation_status'] = revocation_status
             cert_entry['revocation_date'] = revocation_date
@@ -111,16 +127,12 @@ for pem_csv in args.pem_csvs:
 
         cert_entry[fingerprint_key] = cert.fingerprint(hashes.SHA256()).hex()
 
-        if cert.not_valid_after_utc < now:
-            if revocation_status == 'Yes':
-                revoked_count += 1
-            else:
-                expired_without_revocation_count += 1
+        if revocation_status == 'Yes':
+            revoked_count += 1
+        elif cert.not_valid_after_utc < now:
+            expired_without_revocation_count += 1
         else:
-            if revocation_status == 'Yes':
-                revoked_count += 1
-            else:
-                valid_not_revoked_count += 1
+            valid_not_revoked_count += 1
 
 if len(all_certs) >= 10000:
     logger.info("Over 10,000 certificates found. Writing crt.sh links to crtsh_links.txt")
