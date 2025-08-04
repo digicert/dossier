@@ -92,37 +92,39 @@ for pem_csv in args.pem_csvs:
             revocation_status = 'N/A'
             revocation_date = 'N/A'
             revocation_reason = 'N/A'
-            if cert.not_valid_after_utc >= now:
+
+            ocsp_resp = naive_ocsp_client.naive_fetch(cert)
+
+            if cert.not_valid_after_utc < now:
+                revocation_status = 'N/A'
+                revocation_date = 'N/A'
+                revocation_reason = 'N/A'
+            else:
                 ocsp_resp = naive_ocsp_client.naive_fetch(cert)
 
-                is_revoked = ocsp_resp.revocation_time_utc is not None
+                if ocsp_resp is None:
+                    logger.error('No OCSP response returned for certificate with serial: %s', serial_number)
+                    revocation_status = 'OCSP Error'
+                    revocation_date = 'N/A'
+                    revocation_reason = 'N/A'
+                else:
+                    is_revoked = ocsp_resp.revocation_time_utc is not None
 
-                if is_revoked:
-                    revocation_date_dt = ocsp_resp.revocation_time_utc
-                    revocation_date = revocation_date_dt.isoformat()
-                    revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
+                    if is_revoked:
+                        revocation_date_dt = ocsp_resp.revocation_time_utc
+                        revocation_date = revocation_date_dt.isoformat()
+                        revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
 
-                    if incident_discovered:
-                        delta = revocation_date_dt - incident_discovered
-                        if delta > datetime.timedelta(hours=24):
-                            revocation_status = "Delayed"
+                        if incident_discovered:
+                            delta = revocation_date_dt - incident_discovered
+                            if delta > datetime.timedelta(hours=24):
+                                revocation_status = "Delayed"
+                            else:
+                                revocation_status = "Yes"
                         else:
                             revocation_status = "Yes"
                     else:
-                        revocation_status = "Yes"
-                else:
-                    revocation_status = "Planned"
-            else:
-                ocsp_resp = naive_ocsp_client.naive_fetch(cert)
-                is_revoked = ocsp_resp.revocation_time_utc is not None
-
-                if is_revoked:
-                    revocation_date_dt = ocsp_resp.revocation_time_utc
-                    revocation_date = revocation_date_dt.isoformat()
-                    revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
-                    revocation_status = "N/A"
-                else:
-                    revocation_status = "N/A"
+                        revocation_status = "Planned"
 
             cert_entry['revocation_status'] = revocation_status
             cert_entry['revocation_date'] = revocation_date
