@@ -8,27 +8,75 @@ import argparse
 import logging
 import sys
 import tqdm
+import base64
+import os
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import oid
+from datetime import timedelta
 
 import naive_ocsp_client
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-all_certs = {}
+ocsp_cache = {}
 
 now = datetime.datetime.now(datetime.timezone.utc)
 
-year_bucket = collections.Counter()
+def load_cert_from_file(pem_path):
+    with open(pem_path, 'rb') as f:
+        return x509.load_pem_x509_certificate(f.read(), default_backend())
 
-total_certs = 0
-revoked_count = 0
-expired_without_revocation_count = 0
-valid_not_revoked_count = 0
-final_without_precert = 0
-precert_without_final = 0
+def load_cert_from_base64(base64_str):
+    try:
+        pem_data = base64.b64decode(base64_str.encode('utf-8'))
+        return x509.load_der_x509_certificate(pem_data, default_backend())
+    except Exception as e:
+        logger.error(f'Error decoding base64 string: {e}')
+        return None
+
+def get_revocation_status(cert):
+    serial_number = cert.serial_number
+
+    if serial_number in ocsp_cache:
+        return ocsp_cache[serial_number]
+
+    try:
+        ocsp_resp = naive_ocsp_client.naive_fetch(cert)
+        ocsp_cache[serial_number] = ocsp_resp
+        return ocsp_resp
+    except Exception as e:
+        logger.error(f"Error fetching OCSP status for cert {hex(cert.serial_number)[2:]}: {e}")
+        ocsp_cache[serial_number] = None
+        return None
+    
+def check_cert(cert, incident_discovered=None):
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    if cert.not_valid_after_utc < now:
+        logger.info(f'[EXPIRED] Certificate with serial: {hex(cert.serial_number)[2:]} at {cert.not_valid_after_utc} | Revoked status: N/A')
+        return
+
+    result = get_revocation_status(cert)
+    if not result:
+        logger.error(f'[NO RESPONSE] Certificate with serial: {hex(cert.serial_number)[2:]} | Revoked status: OCSP Error')
+        return
+
+    revocation_time = getattr(result, 'revocation_time_utc', None)
+
+    if revocation_time is not None:
+        if incident_discovered:
+            delay = revocation_time - incident_discovered
+            revocation_status = "Delayed" if delay > timedelta(hours=24) else "Yes"
+        else:
+            revocation_status = "Yes"
+
+        logger.info(f'[REVOKED] Certificate with serial: {hex(cert.serial_number)[2:]} at {revocation_time} | Revoked status: {revocation_status}')
+    else:
+        revocation_status = "Planned"
+        logger.info(f'[GOOD] Certificate with serial: {hex(cert.serial_number)[2:]} | Revoked status: {revocation_status}')
 
 def _get_dnsnames(cert):
     try:
@@ -45,9 +93,18 @@ def _is_precert(cert):
     except x509.ExtensionNotFound:
         return False
 
-def process_pem_csv(pem_csvs, output_format='csv', incident=None):
+def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, crtsh_flag=False):
+    all_certs = {}
+    year_bucket = collections.Counter()
 
-    for pem_csv in args.pem_csvs:
+    total_certs = 0
+    revoked_count = 0
+    expired_without_revocation_count = 0
+    valid_not_revoked_count = 0
+    final_without_precert = 0
+    precert_without_final = 0
+
+    for pem_csv in pem_csvs:
         logger.info('Parsing %s', pem_csv.name)
 
         for line_idx, row in tqdm.tqdm(enumerate(csv.DictReader(pem_csv))):
@@ -79,14 +136,12 @@ def process_pem_csv(pem_csvs, output_format='csv', incident=None):
                 revocation_date = 'N/A'
                 revocation_reason = 'N/A'
 
-                ocsp_resp = naive_ocsp_client.naive_fetch(cert)
-
                 if cert.not_valid_after_utc < now:
                     revocation_status = 'N/A'
                     revocation_date = 'N/A'
                     revocation_reason = 'N/A'
                 else:
-                    ocsp_resp = naive_ocsp_client.naive_fetch(cert)
+                    ocsp_resp = get_revocation_status(cert)
 
                     if ocsp_resp is None:
                         logger.error('No OCSP response returned for certificate with serial: %s', serial_number)
@@ -103,10 +158,7 @@ def process_pem_csv(pem_csvs, output_format='csv', incident=None):
 
                             if incident_discovered:
                                 delta = revocation_date_dt - incident_discovered
-                                if delta > datetime.timedelta(hours=24):
-                                    revocation_status = "Delayed"
-                                else:
-                                    revocation_status = "Yes"
+                                revocation_status = "Delayed" if delta > datetime.timedelta(hours=24) else "Yes"
                             else:
                                 revocation_status = "Yes"
                         else:
@@ -134,14 +186,17 @@ def process_pem_csv(pem_csvs, output_format='csv', incident=None):
             else:
                 valid_not_revoked_count += 1
 
-    if len(all_certs) >= 10000:
+    if crtsh_flag or len(all_certs) >= 10000:
         logger.info("Over 10,000 certificates found. Writing crt.sh links to crtsh_links.txt")
 
         with open("crtsh_links.txt", "w") as f:
             for cert_entry in all_certs.values():
-                fingerprint = cert_entry.get('final_cert_fingerprint_sha256')
-                if fingerprint:
-                    f.write(f"https://crt.sh/?sha256={fingerprint}\n")
+                final_fingerprint = cert_entry.get('final_cert_fingerprint_sha256')
+                precert_fingerprint = cert_entry.get('precert_fingerprint_sha256')
+                if final_fingerprint:
+                    f.write(f"https://crt.sh/?sha256={final_fingerprint}\n")
+                if precert_fingerprint:
+                    f.write(f"https://crt.sh/?sha256={precert_fingerprint}\n")
 
     for entry in all_certs.values():
         has_final = "final_cert_fingerprint_sha256" in entry
@@ -152,7 +207,7 @@ def process_pem_csv(pem_csvs, output_format='csv', incident=None):
         elif has_precert and not has_final:
             precert_without_final += 1
 
-    if args.format == 'csv':
+    if output_format == 'csv':
         c = csv.writer(sys.stdout, lineterminator='\n')
         c.writerow(['Precertificate SHA-256 Hash', 'Certificate SHA-256 Hash', 'Subject', 'Issuer', 'Not before', 'Not after', 'Serial #', 'dNSNames', 'Is Revoked?', 'Revocation Date', 'Revocation Reason'])
 
@@ -196,9 +251,10 @@ def process_pem_csv(pem_csvs, output_format='csv', incident=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('pem_csvs', type=argparse.FileType('r', encoding='utf-8'), nargs='+')
+    parser.add_argument('input_path', help='Path to .pem or .csv file')
     parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Output format (csv or json)')
     parser.add_argument('--incident', help="Optional incident discovery datetime in ISO 8601 (e.g. 2025-07-29T15:00:00Z)")
+    parser.add_argument('--crtsh', action='store_true', help="Write crt.sh links to crtsh_links.txt if over 10k certs")
     args = parser.parse_args()
 
     incident_discovered = None
@@ -209,7 +265,16 @@ def main():
             logger.error("Invalid incident datetime format. Use ISO 8601 like '2025-07-29T15:00:00Z'.")
             sys.exit(1)
 
-    process_pem_csv(args.pem_csvs, output_format=args.format, incident=incident_discovered)
+    input_path = args.input_path
+
+    if input_path.endswith('.csv'):
+        with open(input_path, newline='') as csvfile:
+            process_pem_csv([csvfile], args.format, incident_discovered, args.crtsh)
+    elif input_path.endswith('.pem') and os.path.exists(input_path):
+        cert = load_cert_from_file(input_path)
+        check_cert(cert, incident_discovered)
+    else:
+        logger.error("Unsupported input. Provide a .pem file or a .csv with pem_path/base64_cert.")
 
 if __name__ == "__main__":
     main()

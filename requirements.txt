@@ -1,4 +1,5 @@
-cryptography
-requests
 asn1crypto
+cryptography
+pytest
+requests
 tqdm
