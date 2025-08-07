@@ -8,8 +8,8 @@ import argparse
 import logging
 import sys
 import tqdm
-import base64
 import os
+import io
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -17,6 +17,7 @@ from cryptography.x509 import oid
 from datetime import timedelta
 
 import naive_ocsp_client
+from cert_loader import load_cert_from_file, load_certs_from_directory, load_certs_from_zip
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,18 +25,6 @@ logger = logging.getLogger(__name__)
 ocsp_cache = {}
 
 now = datetime.datetime.now(datetime.timezone.utc)
-
-def load_cert_from_file(pem_path):
-    with open(pem_path, 'rb') as f:
-        return x509.load_pem_x509_certificate(f.read(), default_backend())
-
-def load_cert_from_base64(base64_str):
-    try:
-        pem_data = base64.b64decode(base64_str.encode('utf-8'))
-        return x509.load_der_x509_certificate(pem_data, default_backend())
-    except Exception as e:
-        logger.error(f'Error decoding base64 string: {e}')
-        return None
 
 def get_revocation_status(cert):
     serial_number = cert.serial_number
@@ -105,7 +94,7 @@ def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, crt
     precert_without_final = 0
 
     for pem_csv in pem_csvs:
-        logger.info('Parsing %s', pem_csv.name)
+        logger.info('Parsing %s', pem_csv.name if hasattr(pem_csv, 'name') else 'certificates')
 
         for line_idx, row in tqdm.tqdm(enumerate(csv.DictReader(pem_csv))):
             pem = row.get('pem')
@@ -249,9 +238,25 @@ def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, crt
     sys.stderr.write(f"Final cert without precert: {final_without_precert}\n")
     sys.stderr.write(f"Precert without final cert: {precert_without_final}\n")
 
+def process_cert_list(cert_list, output_format='csv', incident_discovered=None, crtsh_flag=False):
+    """Convert cert list to CSV format and process using existing process_pem_csv function"""
+    import io
+    
+    # Create a temporary CSV in memory
+    csv_content = io.StringIO()
+    csv_writer = csv.writer(csv_content)
+    csv_writer.writerow(['pem'])  # Header
+    
+    for cert_info in cert_list:
+        csv_writer.writerow([cert_info['pem_data']])
+    
+    # Reset to beginning and process
+    csv_content.seek(0)
+    process_pem_csv([csv_content], output_format, incident_discovered, crtsh_flag)
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_path', help='Path to .pem or .csv file')
+    parser.add_argument('input_path', help='Path to .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files')
     parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Output format (csv or json)')
     parser.add_argument('--incident', help="Optional incident discovery datetime in ISO 8601 (e.g. 2025-07-29T15:00:00Z)")
     parser.add_argument('--crtsh', action='store_true', help="Write crt.sh links to crtsh_links.txt if over 10k certs")
@@ -273,8 +278,24 @@ def main():
     elif input_path.endswith('.pem') and os.path.exists(input_path):
         cert = load_cert_from_file(input_path)
         check_cert(cert, incident_discovered)
+    elif input_path.endswith('.zip'):
+        logger.info("Processing ZIP file...")
+        cert_generator = load_certs_from_zip(input_path)
+        cert_list = list(tqdm.tqdm(cert_generator, desc="Loading PEMs from zip"))
+        if not cert_list:
+            logger.error("No certificates found to process")
+            sys.exit(1)
+        process_cert_list(cert_list, args.format, incident_discovered, args.crtsh)
+    elif os.path.isdir(input_path):
+        logger.info("Processing directory...")
+        cert_generator = load_certs_from_directory(input_path)
+        cert_list = list(tqdm.tqdm(cert_generator, desc="Loading PEMs from directory"))
+        if not cert_list:
+            logger.error("No certificates found to process")
+            sys.exit(1)
+        process_cert_list(cert_list, args.format, incident_discovered, args.crtsh)
     else:
-        logger.error("Unsupported input. Provide a .pem file or a .csv with pem_path/base64_cert.")
+        logger.error("Unsupported input. Provide a .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files.")
 
 if __name__ == "__main__":
     main()
