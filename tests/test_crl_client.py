@@ -1,10 +1,15 @@
 import datetime
+import os
+import sys
+
+# Add parent directory to path so we can import crl_client
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import httpx
 import pytest
 from cryptography import x509
 
-import crl_client
+from crl_client import CrlClient
 
 
 _CURRENT_TIME = datetime.datetime(2025, 8, 6, tzinfo=datetime.timezone.utc)
@@ -43,7 +48,7 @@ def _create_http_client(content: bytes, status_code: int = 200) -> httpx.Client:
 
 def test_reject_both_full_and_partitioned_crls():
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _FULL_CRL_ISSUER,
             _create_null_http_client(),
             crl_full_uri=_FULL_CRL_URI,
@@ -53,7 +58,7 @@ def test_reject_both_full_and_partitioned_crls():
 
 def test_reject_neither_full_nor_partitioned_crls():
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _FULL_CRL_ISSUER,
             _create_null_http_client(),
         )
@@ -63,7 +68,7 @@ def test_download_crl_404():
     http_client = _create_http_client(b"Not Found", status_code=404)
 
     with pytest.raises(httpx.HTTPStatusError):
-        crl_client.CrlClient(
+        CrlClient(
             _FULL_CRL_ISSUER,
             http_client,
             crl_full_uri=_FULL_CRL_URI,
@@ -74,7 +79,7 @@ def test_download_crl_invalid_content():
     http_client = _create_http_client(b"Invalid CRL content", status_code=200)
 
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _FULL_CRL_ISSUER,
             http_client,
             crl_full_uri=_FULL_CRL_URI,
@@ -85,7 +90,7 @@ def test_validate_mismatched_issuer():
     http_client = _create_http_client(_FULL_CRL, status_code=200)
 
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _PARTITIONED_CRLS_ISSUER,
             http_client,
             crl_full_uri=_FULL_CRL_URI,
@@ -97,7 +102,7 @@ def test_validate_expired_crl():
     http_client = _create_http_client(_FULL_CRL, status_code=200)
 
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _FULL_CRL_ISSUER,
             http_client,
             crl_full_uri=_FULL_CRL_URI,
@@ -109,7 +114,7 @@ def test_validate_partitioned_crl_no_idp():
     http_client = _create_http_client(_FULL_CRL, status_code=200)
 
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _FULL_CRL_ISSUER,
             http_client,
             crl_partitioned_uris=list(_PARTITIONED_CRLS.keys()),
@@ -123,7 +128,7 @@ def test_validate_full_crl_with_idp():
     )
 
     with pytest.raises(ValueError):
-        crl_client.CrlClient(
+        CrlClient(
             _PARTITIONED_CRLS_ISSUER,
             http_client,
             crl_full_uri=_FULL_CRL_URI,
@@ -134,7 +139,7 @@ def test_validate_full_crl_with_idp():
 def test_cert_not_revoked_full():
     http_client = _create_http_client(_FULL_CRL, status_code=200)
 
-    client = crl_client.CrlClient(
+    client = CrlClient(
         _FULL_CRL_ISSUER,
         http_client,
         crl_full_uri=_FULL_CRL_URI,
@@ -147,7 +152,7 @@ def test_cert_not_revoked_full():
 def test_cert_revoked_full():
     http_client = _create_http_client(_FULL_CRL, status_code=200)
 
-    client = crl_client.CrlClient(
+    client = CrlClient(
         _FULL_CRL_ISSUER,
         http_client,
         crl_full_uri=_FULL_CRL_URI,
@@ -167,7 +172,7 @@ def test_cert_not_revoked_partitioned():
 
     http_client = httpx.Client(transport=httpx.MockTransport(handle_request))
 
-    client = crl_client.CrlClient(
+    client = CrlClient(
         _PARTITIONED_CRLS_ISSUER,
         http_client,
         crl_partitioned_uris=list(_PARTITIONED_CRLS.keys()),
@@ -185,7 +190,7 @@ def test_cert_revoked_partitioned():
 
     http_client = httpx.Client(transport=httpx.MockTransport(handle_request))
 
-    client = crl_client.CrlClient(
+    client = CrlClient(
         _PARTITIONED_CRLS_ISSUER,
         http_client,
         crl_partitioned_uris=list(_PARTITIONED_CRLS.keys()),
