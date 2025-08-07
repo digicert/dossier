@@ -12,6 +12,7 @@ import base64
 import os
 import zipfile
 import glob
+import io
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -98,29 +99,6 @@ def load_certs_from_zip(zip_path):
     
     return certs
 
-def load_certs_from_csv(csv_file):
-    """Load certificates from CSV file (existing functionality)."""
-    certs = []
-    
-    for line_idx, row in enumerate(csv.DictReader(csv_file)):
-        pem = row.get('pem')
-        if not pem:
-            logger.error('No PEM found in row #%d: %s', line_idx, row)
-            continue
-
-        try:
-            cert = x509.load_pem_x509_certificate(pem.encode())
-            certs.append({
-                'cert': cert,
-                'source': f'CSV row {line_idx + 1}',
-                'pem_data': pem
-            })
-        except ValueError as e:
-            logger.error('Failed to parse PEM in row %s: %s', row, e)
-            continue
-    
-    return certs
-
 def get_revocation_status(cert):
     serial_number = cert.serial_number
 
@@ -135,6 +113,32 @@ def get_revocation_status(cert):
         logger.error(f"Error fetching OCSP status for cert {hex(cert.serial_number)[2:]}: {e}")
         ocsp_cache[serial_number] = None
         return None
+    
+def check_cert(cert, incident_discovered=None):
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    if cert.not_valid_after_utc < now:
+        logger.info(f'[EXPIRED] Certificate with serial: {hex(cert.serial_number)[2:]} at {cert.not_valid_after_utc} | Revoked status: N/A')
+        return
+
+    result = get_revocation_status(cert)
+    if not result:
+        logger.error(f'[NO RESPONSE] Certificate with serial: {hex(cert.serial_number)[2:]} | Revoked status: OCSP Error')
+        return
+
+    revocation_time = getattr(result, 'revocation_time_utc', None)
+
+    if revocation_time is not None:
+        if incident_discovered:
+            delay = revocation_time - incident_discovered
+            revocation_status = "Delayed" if delay > timedelta(hours=24) else "Yes"
+        else:
+            revocation_status = "Yes"
+
+        logger.info(f'[REVOKED] Certificate with serial: {hex(cert.serial_number)[2:]} at {revocation_time} | Revoked status: {revocation_status}')
+    else:
+        revocation_status = "Planned"
+        logger.info(f'[GOOD] Certificate with serial: {hex(cert.serial_number)[2:]} | Revoked status: {revocation_status}')
 
 def _get_dnsnames(cert):
     try:
@@ -151,7 +155,7 @@ def _is_precert(cert):
     except x509.ExtensionNotFound:
         return False
 
-def process_certificates(certs_list, output_format='csv', incident_discovered=None, crtsh_flag=False):
+def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, crtsh_flag=False):
     all_certs = {}
     year_bucket = collections.Counter()
 
@@ -162,74 +166,87 @@ def process_certificates(certs_list, output_format='csv', incident_discovered=No
     final_without_precert = 0
     precert_without_final = 0
 
-    logger.info('Processing %d certificates', len(certs_list))
+    for pem_csv in pem_csvs:
+        logger.info('Parsing %s', pem_csv.name if hasattr(pem_csv, 'name') else 'certificates')
 
-    for cert_info in tqdm.tqdm(certs_list, desc="Processing certificates"):
-        cert = cert_info['cert']
-        
-        serial_number = hex(cert.serial_number)[2:]
-        total_certs += 1
+        for line_idx, row in tqdm.tqdm(enumerate(csv.DictReader(pem_csv))):
+            pem = row.get('pem')
+            if not pem:
+                logger.error('No PEM found in row #%d: %s', line_idx, row)
+                continue
 
-        cert_entry = all_certs.get(serial_number)
-        if cert_entry is None:
-            cert_entry = {
-                'subject': cert.subject.rfc4514_string(),
-                'issuer': cert.issuer.rfc4514_string(),
-                'not_before': cert.not_valid_before_utc.isoformat(),
-                'not_after': cert.not_valid_after_utc.isoformat(),
-                'dns_names': _get_dnsnames(cert),
-            }
+            try:
+                cert = x509.load_pem_x509_certificate(pem.encode())
+            except ValueError as e:
+                logger.error('Failed to parse PEM in row %s: %s', row, e)
+                continue
 
-            revocation_status = 'N/A'
-            revocation_date = 'N/A'
-            revocation_reason = 'N/A'
+            serial_number = hex(cert.serial_number)[2:]
+            total_certs += 1
 
-            if cert.not_valid_after_utc < now:
+            cert_entry = all_certs.get(serial_number)
+            if cert_entry is None:
+                cert_entry = {
+                    'subject': cert.subject.rfc4514_string(),
+                    'issuer': cert.issuer.rfc4514_string(),
+                    'not_before': cert.not_valid_before_utc.isoformat(),
+                    'not_after': cert.not_valid_after_utc.isoformat(),
+                    'dns_names': _get_dnsnames(cert),
+                }
+
                 revocation_status = 'N/A'
                 revocation_date = 'N/A'
                 revocation_reason = 'N/A'
-                expired_without_revocation_count += 1
-            else:
-                ocsp_resp = get_revocation_status(cert)
 
-                if ocsp_resp is None:
-                    logger.error('No OCSP response returned for certificate with serial: %s', serial_number)
-                    revocation_status = 'OCSP Error'
+                if cert.not_valid_after_utc < now:
+                    revocation_status = 'N/A'
                     revocation_date = 'N/A'
                     revocation_reason = 'N/A'
                 else:
-                    is_revoked = ocsp_resp.revocation_time_utc is not None
+                    ocsp_resp = get_revocation_status(cert)
 
-                    if is_revoked:
-                        revocation_date_dt = ocsp_resp.revocation_time_utc
-                        revocation_date = revocation_date_dt.isoformat()
-                        revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
-
-                        if incident_discovered:
-                            delta = revocation_date_dt - incident_discovered
-                            revocation_status = "Delayed" if delta > datetime.timedelta(hours=24) else "Yes"
-                        else:
-                            revocation_status = "Yes"
-                        
-                        revoked_count += 1
+                    if ocsp_resp is None:
+                        logger.error('No OCSP response returned for certificate with serial: %s', serial_number)
+                        revocation_status = 'OCSP Error'
+                        revocation_date = 'N/A'
+                        revocation_reason = 'N/A'
                     else:
-                        revocation_status = "Planned"
-                        valid_not_revoked_count += 1
+                        is_revoked = ocsp_resp.revocation_time_utc is not None
 
-            cert_entry['revocation_status'] = revocation_status
-            cert_entry['revocation_date'] = revocation_date
-            cert_entry['revocation_reason'] = revocation_reason
+                        if is_revoked:
+                            revocation_date_dt = ocsp_resp.revocation_time_utc
+                            revocation_date = revocation_date_dt.isoformat()
+                            revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
 
-            issued_year = cert.not_valid_before_utc.year
-            year_bucket[issued_year] += 1
+                            if incident_discovered:
+                                delta = revocation_date_dt - incident_discovered
+                                revocation_status = "Delayed" if delta > datetime.timedelta(hours=24) else "Yes"
+                            else:
+                                revocation_status = "Yes"
+                        else:
+                            revocation_status = "Planned"
 
-            all_certs[serial_number] = cert_entry
+                cert_entry['revocation_status'] = revocation_status
+                cert_entry['revocation_date'] = revocation_date
+                cert_entry['revocation_reason'] = revocation_reason
 
-        fingerprint_key = 'precert_fingerprint_sha256' if _is_precert(cert) else 'final_cert_fingerprint_sha256'
-        if fingerprint_key in cert_entry:
-            logger.error('Duplicate key "%s" for serial number %s found, overwriting', fingerprint_key, cert.serial_number)
+                issued_year = cert.not_valid_before_utc.year
+                year_bucket[issued_year] += 1
 
-        cert_entry[fingerprint_key] = cert.fingerprint(hashes.SHA256()).hex()
+                all_certs[serial_number] = cert_entry
+
+            fingerprint_key = 'precert_fingerprint_sha256' if _is_precert(cert) else 'final_cert_fingerprint_sha256'
+            if fingerprint_key in cert_entry:
+                logger.error('Duplicate key "%s" for serial number %s found, overwriting', fingerprint_key, cert.serial_number)
+
+            cert_entry[fingerprint_key] = cert.fingerprint(hashes.SHA256()).hex()
+
+            if revocation_status == 'Yes':
+                revoked_count += 1
+            elif cert.not_valid_after_utc < now:
+                expired_without_revocation_count += 1
+            else:
+                valid_not_revoked_count += 1
 
     if crtsh_flag or len(all_certs) >= 10000:
         logger.info("Over 10,000 certificates found. Writing crt.sh links to crtsh_links.txt")
@@ -294,11 +311,25 @@ def process_certificates(certs_list, output_format='csv', incident_discovered=No
     sys.stderr.write(f"Final cert without precert: {final_without_precert}\n")
     sys.stderr.write(f"Precert without final cert: {precert_without_final}\n")
 
+def process_cert_list(cert_list, output_format='csv', incident_discovered=None, crtsh_flag=False):
+    """Convert cert list to CSV format and process using existing process_pem_csv function"""
+    import io
+    
+    # Create a temporary CSV in memory
+    csv_content = io.StringIO()
+    csv_writer = csv.writer(csv_content)
+    csv_writer.writerow(['pem'])  # Header
+    
+    for cert_info in cert_list:
+        csv_writer.writerow([cert_info['pem_data']])
+    
+    # Reset to beginning and process
+    csv_content.seek(0)
+    process_pem_csv([csv_content], output_format, incident_discovered, crtsh_flag)
+
 def main():
-    parser = argparse.ArgumentParser(
-        description='Process PEM certificates from various sources (CSV files, directories, or zip files)'
-    )
-    parser.add_argument('input_path', help='Path to .csv file, directory containing .pem files, or .zip file containing .pem files')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_path', help='Path to .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files')
     parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Output format (csv or json)')
     parser.add_argument('--incident', help="Optional incident discovery datetime in ISO 8601 (e.g. 2025-07-29T15:00:00Z)")
     parser.add_argument('--crtsh', action='store_true', help="Write crt.sh links to crtsh_links.txt if over 10k certs")
@@ -314,37 +345,28 @@ def main():
 
     input_path = args.input_path
 
-    # Determine input type and load certificates accordingly
-    certs_list = []
-    
-    if not os.path.exists(input_path):
-        logger.error(f"Input path does not exist: {input_path}")
-        sys.exit(1)
-    
-    if os.path.isfile(input_path):
-        if input_path.endswith('.csv'):
-            logger.info("Processing CSV file...")
-            with open(input_path, newline='') as csvfile:
-                certs_list = load_certs_from_csv(csvfile)
-        elif input_path.endswith('.zip'):
-            logger.info("Processing ZIP file...")
-            certs_list = load_certs_from_zip(input_path)
-        else:
-            logger.error("Unsupported file type. Supported types: .csv, .zip")
+    if input_path.endswith('.csv'):
+        with open(input_path, newline='') as csvfile:
+            process_pem_csv([csvfile], args.format, incident_discovered, args.crtsh)
+    elif input_path.endswith('.pem') and os.path.exists(input_path):
+        cert = load_cert_from_file(input_path)
+        check_cert(cert, incident_discovered)
+    elif input_path.endswith('.zip'):
+        logger.info("Processing ZIP file...")
+        cert_list = load_certs_from_zip(input_path)
+        if not cert_list:
+            logger.error("No certificates found to process")
             sys.exit(1)
+        process_cert_list(cert_list, args.format, incident_discovered, args.crtsh)
     elif os.path.isdir(input_path):
         logger.info("Processing directory...")
-        certs_list = load_certs_from_directory(input_path)
+        cert_list = load_certs_from_directory(input_path)
+        if not cert_list:
+            logger.error("No certificates found to process")
+            sys.exit(1)
+        process_cert_list(cert_list, args.format, incident_discovered, args.crtsh)
     else:
-        logger.error("Input path is neither a file nor a directory")
-        sys.exit(1)
-    
-    if not certs_list:
-        logger.error("No certificates found to process")
-        sys.exit(1)
-    
-    # Process the certificates
-    process_certificates(certs_list, args.format, incident_discovered, args.crtsh)
+        logger.error("Unsupported input. Provide a .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files.")
 
 if __name__ == "__main__":
     main()
