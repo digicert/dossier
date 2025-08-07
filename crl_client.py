@@ -6,6 +6,8 @@ import httpx
 from cryptography import x509
 from cryptography.x509 import oid
 
+from ccadb_client import fetch_ca_certs_from_ccadb, find_issuer_cert_from_ccadb
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,16 +42,35 @@ class CrlClient:
         self.crls = []
         for uri in uris:
             try:
-                self.crls.append(self._download_and_validate_crl(uri, is_full))
+                crl = self._download_crl(uri)
+                if issuer is None:
+                    ca_certs = fetch_ca_certs_from_ccadb()
+                    issuer = find_issuer_cert_from_ccadb(crl.issuer, ca_certs)
+                    if issuer is None:
+                        raise ValueError("Could not find issuer cert from CCADB.")
+                self._issuer = issuer
+
+                self._validate_crl(crl, None if is_full else uri)
+                self.crls.append(crl)
+
             except Exception as e:
                 logger.exception(
-                    "Failed to download and validate %s CRL from %s: %s",
+                    "Failed to process %s CRL from %s: %s",
                     "full" if is_full else "partitioned",
                     uri,
                     e,
                 )
-
                 raise e
+
+    def _download_crl(self, uri: str) -> x509.CertificateRevocationList:
+        resp = self._http_client.get(uri)
+        resp.raise_for_status()
+
+        content = resp.content
+        logger.info("Downloaded %d bytes from %s", len(content), uri)
+
+        crl = x509.load_der_x509_crl(content)
+        return crl
 
     def get_revocation_status(
         self, serial_number: int
