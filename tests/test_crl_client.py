@@ -1,4 +1,9 @@
 import datetime
+import os
+import sys
+
+# Add parent directory to path so we can import crl_client
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import httpx
 import pytest
