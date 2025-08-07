@@ -55,7 +55,7 @@ class CrlClient:
 
             except Exception as e:
                 logger.exception(
-                    "Failed to download and validate %s CRL from %s: %s"
+                    "Failed to download and validate %s CRL from %s: %s",
                     "full" if is_full else "partitioned",
                     uri,
                     e,
