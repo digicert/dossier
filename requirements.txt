@@ -1,5 +1,6 @@
-cryptography
-httpx
 asn1crypto
-tqdm
+cryptography
 pytest
+requests
+tqdm
+httpx
