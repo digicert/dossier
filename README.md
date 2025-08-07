@@ -1,20 +1,43 @@
 # dossier
-This script parses PEM certificates from CSV files, checks their revocation status using OCSP, and outputs a report in CSV or JSON format.
+This script parses PEM certificates from various sources (CSV files, directories, or zip files), checks their revocation status using OCSP, and outputs a report in CSV or JSON format.
+
+# Input Types
+
+The script supports multiple input formats for bulk certificate processing:
+
+1. **CSV files** - Files containing PEM certificates in a `pem` column
+2. **Directories** - Folders containing multiple `.pem` files
+3. **ZIP files** - Compressed archives containing `.pem` files
 
 # Usage
-CSV Output (default)
+
+## CSV Output (default)
 ```bash
+# CSV file input
 python main.py sample_data.csv > sample_data_output.csv
+
+# Directory input  
+python main.py tests/pems_dir > directory_output.csv
+
+# ZIP file input
+python main.py tests/pems_zipped.zip > zip_output.csv
 ```
 
-JSON Output<br>
+## JSON Output
 Use the `--format flag` to specify output format
 ```bash
+# CSV file input
 python main.py sample_data.csv --format json > sample_data_output.json
+
+# Directory input
+python main.py tests/pems_dir --format json > directory_output.json
+
+# ZIP file input
+python main.py tests/pems_zipped.zip --format json > zip_output.json
 ```
 
-- CSV: Easy to paste into Bugzilla or reports
-- JSON: Useful for integration with tools or scripts
+- **CSV**: Easy to paste into Bugzilla or reports
+- **JSON**: Useful for integration with tools or scripts
 
 # Link Generation
 If more than 10,000 certificates are processed:
