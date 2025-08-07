@@ -280,14 +280,16 @@ def main():
         check_cert(cert, incident_discovered)
     elif input_path.endswith('.zip'):
         logger.info("Processing ZIP file...")
-        cert_list = load_certs_from_zip(input_path)
+        cert_generator = load_certs_from_zip(input_path)
+        cert_list = list(tqdm.tqdm(cert_generator, desc="Loading PEMs from zip"))
         if not cert_list:
             logger.error("No certificates found to process")
             sys.exit(1)
         process_cert_list(cert_list, args.format, incident_discovered, args.crtsh)
     elif os.path.isdir(input_path):
         logger.info("Processing directory...")
-        cert_list = load_certs_from_directory(input_path)
+        cert_generator = load_certs_from_directory(input_path)
+        cert_list = list(tqdm.tqdm(cert_generator, desc="Loading PEMs from directory"))
         if not cert_list:
             logger.error("No certificates found to process")
             sys.exit(1)

@@ -13,9 +13,8 @@ import glob
 import logging
 import os
 import zipfile
-from typing import List, Dict, Any, Optional
+from typing import Iterator, Dict, Any, Optional, List
 
-import tqdm
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
@@ -52,70 +51,65 @@ def load_cert_from_base64(base64_str: str) -> Optional[x509.Certificate]:
         return None
 
 
-def load_certs_from_directory(directory_path: str) -> List[Dict[str, Any]]:
+def load_certs_from_directory(directory_path: str) -> Iterator[Dict[str, Any]]:
     """Load all PEM certificates from a directory.
     
     Args:
         directory_path: Path to directory containing .pem files
         
-    Returns:
-        List of dictionaries containing cert, source, and pem_data
+    Yields:
+        Dictionary containing cert, source, and pem_data for each certificate
     """
-    certs = []
     pem_files = glob.glob(os.path.join(directory_path, "*.pem"))
     
     if not pem_files:
         logger.warning(f"No .pem files found in directory: {directory_path}")
-        return certs
+        return
     
     logger.info(f"Found {len(pem_files)} PEM files in directory: {directory_path}")
     
-    for pem_file in tqdm.tqdm(pem_files, desc="Loading PEMs from directory"):
+    for pem_file in pem_files:
         try:
             with open(pem_file, 'rb') as f:
                 cert_data = f.read()
                 cert = x509.load_pem_x509_certificate(cert_data, default_backend())
-                certs.append({
+                yield {
                     'cert': cert,
                     'source': os.path.basename(pem_file),
                     'pem_data': cert_data.decode('utf-8')
-                })
+                }
         except Exception as e:
             logger.error(f"Failed to load certificate from {pem_file}: {e}")
-    
-    return certs
 
 
-def load_certs_from_zip(zip_path: str) -> List[Dict[str, Any]]:
+def load_certs_from_zip(zip_path: str) -> Iterator[Dict[str, Any]]:
     """Load all PEM certificates from a zip file.
     
     Args:
         zip_path: Path to ZIP file containing .pem files
         
-    Returns:
-        List of dictionaries containing cert, source, and pem_data
+    Yields:
+        Dictionary containing cert, source, and pem_data for each certificate
     """
-    certs = []
-    
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_file:
             pem_files = [f for f in zip_file.namelist() if f.endswith('.pem') and not f.endswith('/')]
             
             if not pem_files:
                 logger.warning(f"No .pem files found in zip: {zip_path}")
-                return certs
+                return
             
             logger.info(f"Found {len(pem_files)} PEM files in zip: {zip_path}")
             
-            for pem_file in tqdm.tqdm(pem_files, desc="Loading PEMs from zip"):
+            for pem_file in pem_files:
                 try:
                     cert_data = zip_file.read(pem_file)
                     cert = x509.load_pem_x509_certificate(cert_data, default_backend())
-                    certs.append({
+                    yield {
                         'cert': cert,
                         'source': os.path.basename(pem_file),
                         'pem_data': cert_data.decode('utf-8')
-                    })
+                    }
                 except Exception as e:
                     logger.error(f"Failed to load certificate from {pem_file} in zip: {e}")
     
@@ -123,5 +117,28 @@ def load_certs_from_zip(zip_path: str) -> List[Dict[str, Any]]:
         logger.error(f"Invalid zip file: {zip_path}")
     except Exception as e:
         logger.error(f"Error reading zip file {zip_path}: {e}")
+
+
+# Convenience functions that return lists (for backwards compatibility)
+def load_certs_from_directory_list(directory_path: str) -> List[Dict[str, Any]]:
+    """Load all PEM certificates from a directory and return as a list.
     
-    return certs
+    Args:
+        directory_path: Path to directory containing .pem files
+        
+    Returns:
+        List of dictionaries containing cert, source, and pem_data
+    """
+    return list(load_certs_from_directory(directory_path))
+
+
+def load_certs_from_zip_list(zip_path: str) -> List[Dict[str, Any]]:
+    """Load all PEM certificates from a zip file and return as a list.
+    
+    Args:
+        zip_path: Path to ZIP file containing .pem files
+        
+    Returns:
+        List of dictionaries containing cert, source, and pem_data
+    """
+    return list(load_certs_from_zip(zip_path))
