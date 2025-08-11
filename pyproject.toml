@@ -6,7 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "dossier"
 version = "1.0.0"
 authors = [
-    {name = "Corey Bonnell", email = "corey.bonnell@digicert.com"},
+    {name = "Corey Bonnell", email = "corey.bonnell@digicert.com",
+    name = "Michael Lettona", email = "michael.lettona@digicert.com",
+    name = "Alex Campbell", email = "alex.campbell@digicert.com"
+    },
 ]
 description = "Certificate processing and OCSP validation tool"
 readme = "README.md"
