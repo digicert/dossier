@@ -1,43 +1,92 @@
-# dossier
-This script parses PEM certificates from various sources (CSV files, directories, or zip files), checks their revocation status using OCSP, and outputs a report in CSV or JSON format.
+# Dossier
 
-# Input Types
+A Python package for processing X.509 certificates and validating their revocation status using OCSP.
 
-The script supports multiple input formats for bulk certificate processing:
+## Features
 
-1. **CSV files** - Files containing PEM certificates in a `pem` column
-2. **Directories** - Folders containing multiple `.pem` files
-3. **ZIP files** - Compressed archives containing `.pem` files
+- **Multiple Input Formats**: Process certificates from CSV files, directories, or ZIP archives
+- **OCSP Validation**: Check certificate revocation status using OCSP responders
+- **Flexible Output**: Generate reports in CSV or JSON format
+- **Bulk Processing**: Handle thousands of certificates efficiently
+- **Progress Tracking**: Visual progress bars for large datasets
+- **Library & CLI**: Use as a command-line tool or import as a Python library
 
-# Usage
+## Installation
 
-## CSV Output (default)
+### From Source
+```bash
+git clone https://github.com/digicert/dossier.git
+cd dossier
+pip install -e .
+```
+
+### For Development
+```bash
+git clone https://github.com/digicert/dossier.git
+cd dossier
+pip install -e .[dev]
+```
+
+## Command Line Usage
+
+After installation, use the `dossier` command:
+
+### CSV Output (default)
 ```bash
 # CSV file input
-python main.py sample_data.csv > sample_data_output.csv
+dossier sample_data.csv > sample_data_output.csv
 
 # Directory input  
-python main.py tests/pems_dir > directory_output.csv
+dossier tests/pems_dir > directory_output.csv
 
 # ZIP file input
-python main.py tests/pems_zipped.zip > zip_output.csv
+dossier tests/pems_zipped.zip > zip_output.csv
 ```
 
-## JSON Output
-Use the `--format flag` to specify output format
+### JSON Output
 ```bash
 # CSV file input
-python main.py sample_data.csv --format json > sample_data_output.json
+dossier sample_data.csv --format json > sample_data_output.json
 
 # Directory input
-python main.py tests/pems_dir --format json > directory_output.json
+dossier tests/pems_dir --format json > directory_output.json
 
 # ZIP file input
-python main.py tests/pems_zipped.zip --format json > zip_output.json
+dossier tests/pems_zipped.zip --format json > zip_output.json
 ```
 
-- **CSV**: Easy to paste into Bugzilla or reports
-- **JSON**: Useful for integration with tools or scripts
+## Library Usage
+
+```python
+from dossier import load_certs_from_directory, load_cert_from_file
+from dossier.main import process_cert_list
+
+# Load certificates from a directory (generator for memory efficiency)
+for cert_info in load_certs_from_directory('/path/to/certs'):
+    print(f"Loaded: {cert_info['source']}")
+    # Process individual certificate...
+
+# Load a single certificate
+cert = load_cert_from_file('/path/to/cert.pem')
+
+# Load all certificates into a list (for smaller datasets)
+from dossier import load_certs_from_directory_list
+cert_list = load_certs_from_directory_list('/path/to/certs')
+```
+
+## Input Types
+
+The tool supports multiple input formats:
+
+1. **CSV files** - Files containing PEM certificates in a `pem` column
+2. **Directories** - Folders containing multiple `.pem` files  
+3. **ZIP files** - Compressed archives containing `.pem` files
+4. **Single PEM files** - Individual certificate files
+
+## Output Formats
+
+- **CSV**: Easy to import into spreadsheets or paste into reports
+- **JSON**: Structured data for integration with other tools
 
 # Link Generation
 If more than 10,000 certificates are processed:

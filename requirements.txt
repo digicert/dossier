@@ -1,6 +1,0 @@
-asn1crypto
-cryptography
-pytest
-requests
-tqdm
-httpx

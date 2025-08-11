@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include pyproject.toml
+recursive-include tests *.py
+recursive-include tests *.pem
+recursive-include tests *.zip
+recursive-include dossier *.py
+global-exclude __pycache__
+global-exclude *.py[co]
