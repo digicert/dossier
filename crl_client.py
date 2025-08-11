@@ -42,17 +42,7 @@ class CrlClient:
         self.crls = []
         for uri in uris:
             try:
-                crl = self._download_crl(uri)
-                if issuer is None:
-                    ca_certs = fetch_ca_certs_from_ccadb()
-                    issuer = find_issuer_cert_from_ccadb(crl.issuer, ca_certs)
-                    if issuer is None:
-                        raise ValueError("Could not find issuer cert from CCADB.")
-                self._issuer = issuer
-
-                self._validate_crl(crl, None if is_full else uri)
-                self.crls.append(crl)
-
+                self.crls.append(self._download_and_validate_crl(uri, is_full))
             except Exception as e:
                 logger.exception(
                     "Failed to download and validate %s CRL from %s: %s",
@@ -60,6 +50,7 @@ class CrlClient:
                     uri,
                     e,
                 )
+
                 raise e
 
     def _download_crl(self, uri: str) -> x509.CertificateRevocationList:
