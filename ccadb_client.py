@@ -64,8 +64,8 @@ class CCADBCertFetcher:
                     obj.verify_directly_issued_by(cert)
                     return cert
                 except Exception as e:
-                    logger.error(f"Issuer found but verification failed: {e}")
-                    raise ValueError("Issuer verification failed")
+                    logger.error(f"Issuer found but verification failed with cert key: {e}")
+                    # Continue searching other certs
         raise ValueError("Matching issuer certificate not found in CCADB")
 
 def find_issuer_cert_from_ccadb(
