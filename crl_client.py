@@ -6,8 +6,6 @@ import httpx
 from cryptography import x509
 from cryptography.x509 import oid
 
-from ccadb_client import fetch_ca_certs_from_ccadb, find_issuer_cert_from_ccadb
-
 logger = logging.getLogger(__name__)
 
 
@@ -52,16 +50,6 @@ class CrlClient:
                 )
 
                 raise e
-
-    def _download_crl(self, uri: str) -> x509.CertificateRevocationList:
-        resp = self._http_client.get(uri)
-        resp.raise_for_status()
-
-        content = resp.content
-        logger.info("Downloaded %d bytes from %s", len(content), uri)
-
-        crl = x509.load_der_x509_crl(content)
-        return crl
 
     def get_revocation_status(
         self, serial_number: int
