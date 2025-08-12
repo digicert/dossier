@@ -112,6 +112,12 @@ Optionally provide an incident discovery datetime using the `--incident` paramet
   - If the incident discovery time is **within 24 hours** of the revocation time, the **Revocation Status** will be `"Yes"`.
   - If the certificate is expired, the status will be `"N/A"` regardless of incident time.
 
+- `--revocation-window` [Optional]
+  - Specifies the maximum allowed time between the discovery of an incident and the certificate revocation, when used with the `--incident argument`.
+  - Can be 24h, 5d, or 7d 
+  - Default is 24h
+  - All delay comparisons use that dynamic window
+
 ---
 
 ## Usage
