@@ -7,7 +7,7 @@ from asn1crypto.core import Integer
 from cryptography import x509
 from cryptography.x509 import ocsp as crypto_ocsp
 
-import util
+from . import util
 
 logger = logging.getLogger(__name__)
 

@@ -16,8 +16,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import oid
 from datetime import timedelta
 
-import naive_ocsp_client
-from cert_loader import load_cert_from_file, load_certs_from_directory, load_certs_from_zip
+from . import naive_ocsp_client
+from .cert_loader import load_cert_from_file, load_certs_from_directory, load_certs_from_zip
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)

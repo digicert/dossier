@@ -1,15 +1,10 @@
 import datetime
-import os
-import sys
-
-# Add parent directory to path so we can import crl_client
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import httpx
 import pytest
 from cryptography import x509
 
-from crl_client import CrlClient
+from dossier.crl_client import CrlClient
 
 
 _CURRENT_TIME = datetime.datetime(2025, 8, 6, tzinfo=datetime.timezone.utc)

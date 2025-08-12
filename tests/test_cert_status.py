@@ -14,7 +14,7 @@ INCIDENT_DATE = "2025-07-15T03:17:13Z"
 def test_cert_status(cert_file, expected_status):
     cert_path = TEST_CERTS_DIR / cert_file
     result = subprocess.run(
-        ['python3', 'main.py', '--incident', INCIDENT_DATE, str(cert_path)],
+        ['python3', '-m', 'dossier.main', '--incident', INCIDENT_DATE, str(cert_path)],
         capture_output=True,
         text=True
     )
