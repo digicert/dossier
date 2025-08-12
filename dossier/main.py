@@ -41,7 +41,7 @@ def get_revocation_status(cert):
         ocsp_cache[serial_number] = None
         return None
     
-def check_cert(cert, incident_discovered=None, revocation_window=datetime.timedelta(hours=24)):
+def check_cert(cert, incident_discovered=None, revocation_window=None):
     now = datetime.datetime.now(datetime.timezone.utc)
 
     if cert.not_valid_after_utc < now:
@@ -82,7 +82,7 @@ def _is_precert(cert):
     except x509.ExtensionNotFound:
         return False
 
-def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, revocation_window=datetime.timedelta(hours=24), crtsh_flag=False):
+def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, revocation_window=None, crtsh_flag=False):
     all_certs = {}
     year_bucket = collections.Counter()
 
