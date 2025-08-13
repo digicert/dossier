@@ -208,8 +208,8 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fa
                 else:
                     valid_not_revoked_count += 1
 
-    # Write crt.sh links if in fast mode OR if crtsh_flag is set OR if over 10k certs
-    if fast_mode or crtsh_flag or len(all_certs) >= 10000:
+    # Write crt.sh links if in fast mode OR if crtsh_flag is set OR if over threshold
+    if fast_mode or crtsh_flag or len(all_certs) >= fast_threshold:
         logger.info(f"Writing crt.sh links for {len(all_certs)} unique certificates to crtsh_links.txt")
 
         with open("crtsh_links.txt", "w") as f:
