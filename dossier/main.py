@@ -82,7 +82,7 @@ def _is_precert(cert):
     except x509.ExtensionNotFound:
         return False
 
-def process_pem_csv(pem_csvs, output_format='csv', incident_discovered=None, revocation_window=None, crtsh_flag=False):
+def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_window, crtsh_flag):
     all_certs = {}
     year_bucket = collections.Counter()
 
