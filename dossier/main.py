@@ -41,7 +41,7 @@ def get_revocation_status(cert):
         ocsp_cache[serial_number] = None
         return None
     
-def check_cert(cert, incident_discovered=None, revocation_window=None):
+def check_cert(cert, incident_discovered, revocation_window):
     now = datetime.datetime.now(datetime.timezone.utc)
 
     if cert.not_valid_after_utc < now:
