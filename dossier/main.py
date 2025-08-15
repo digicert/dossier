@@ -44,6 +44,9 @@ def get_revocation_status(cert):
 def check_cert(cert, incident_discovered, revocation_window):
     now = datetime.datetime.now(datetime.timezone.utc)
 
+    if revocation_window is None:
+        revocation_window = datetime.timedelta(hours=24)
+
     if cert.not_valid_after_utc < now:
         logger.info(f'[EXPIRED] Certificate with serial: {hex(cert.serial_number)[2:]} at {cert.not_valid_after_utc} | Revoked status: N/A')
         return
@@ -286,7 +289,7 @@ def main():
             process_pem_csv([csvfile], args.format, incident_discovered, revocation_window, args.crtsh)
     elif input_path.endswith('.pem') and os.path.exists(input_path):
         cert = load_cert_from_file(input_path)
-        check_cert(cert, incident_discovered)
+        check_cert(cert, incident_discovered, revocation_window)
     elif input_path.endswith('.zip'):
         logger.info("Processing ZIP file...")
         cert_generator = load_certs_from_zip(input_path)
