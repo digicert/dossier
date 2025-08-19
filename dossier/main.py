@@ -83,26 +83,35 @@ def _is_precert(cert):
         return False
 
 def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fast_threshold):
-    # First pass: quick count to determine if we should use fast mode
-    total_cert_count = 0
+    # First pass: quick count of unique certificates to determine if we should use fast mode
+    unique_serials = set()
     pem_csv_list = list(pem_csvs)  # Convert to list so we can iterate twice
     
     for pem_csv in pem_csv_list:
         pem_csv.seek(0)  # Reset to beginning
         csv_reader = csv.DictReader(pem_csv)
         for row in csv_reader:
-            if row.get('pem'):
-                total_cert_count += 1
+            pem = row.get('pem')
+            if pem:
+                try:
+                    cert = x509.load_pem_x509_certificate(pem.encode())
+                    serial_number = hex(cert.serial_number)[2:]
+                    unique_serials.add(serial_number)
+                except ValueError:
+                    # Skip invalid PEMs in counting phase
+                    continue
         pem_csv.seek(0)  # Reset for actual processing
     
-    # Check if we should use fast mode
-    fast_mode = total_cert_count >= fast_threshold
+    unique_cert_count = len(unique_serials)
+    
+    # Check if we should use fast mode based on unique certificates, not total PEMs
+    fast_mode = unique_cert_count >= fast_threshold
     
     if fast_mode:
-        logger.info(f"🚀 Certificate count ({total_cert_count}) exceeds fast mode threshold ({fast_threshold})")
+        logger.info(f"🚀 Unique certificate count ({unique_cert_count}) exceeds fast mode threshold ({fast_threshold})")
         logger.info("🚀 Fast mode enabled - skipping detailed parsing and revocation checks")
     else:
-        logger.info(f"Processing {total_cert_count} certificates in normal mode")
+        logger.info(f"Processing {unique_cert_count} unique certificates in normal mode")
     
     all_certs = {}
     total_certs = 0
