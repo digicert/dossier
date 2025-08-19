@@ -41,8 +41,11 @@ def get_revocation_status(cert):
         ocsp_cache[serial_number] = None
         return None
     
-def check_cert(cert, incident_discovered=None):
+def check_cert(cert, incident_discovered, revocation_window):
     now = datetime.datetime.now(datetime.timezone.utc)
+
+    if revocation_window is None:
+        revocation_window = datetime.timedelta(hours=24)
 
     if cert.not_valid_after_utc < now:
         logger.info(f'[EXPIRED] Certificate with serial: {hex(cert.serial_number)[2:]} at {cert.not_valid_after_utc} | Revoked status: N/A')
@@ -58,7 +61,7 @@ def check_cert(cert, incident_discovered=None):
     if revocation_time is not None:
         if incident_discovered:
             delay = revocation_time - incident_discovered
-            revocation_status = "Delayed" if delay > timedelta(hours=24) else "Yes"
+            revocation_status = "Delayed" if delay > revocation_window else "Yes"
         else:
             revocation_status = "Yes"
 
@@ -82,7 +85,7 @@ def _is_precert(cert):
     except x509.ExtensionNotFound:
         return False
 
-def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fast_threshold):
+def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_window, crtsh_flag, fast_threshold):
     # First pass: quick count of unique certificates to determine if we should use fast mode
     unique_serials = set()
     pem_csv_list = list(pem_csvs)  # Convert to list so we can iterate twice
@@ -112,7 +115,6 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fa
         logger.info("🚀 Fast mode enabled - skipping detailed parsing and revocation checks")
     else:
         logger.info(f"Processing {unique_cert_count} unique certificates in normal mode")
-    
     all_certs = {}
     total_certs = 0
     
@@ -178,6 +180,19 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fa
                             revocation_reason = 'N/A'
                         else:
                             is_revoked = ocsp_resp.revocation_time_utc is not None
+
+                            if is_revoked:
+                                revocation_date_dt = ocsp_resp.revocation_time_utc
+                                revocation_date = revocation_date_dt.isoformat()
+                                revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
+
+                                if incident_discovered:
+                                    delta = revocation_date_dt - incident_discovered
+                                    revocation_status = "Delayed" if delta > revocation_window else "Yes"
+                                else:
+                                    revocation_status = "Yes"
+                            else:
+                                revocation_status = "Planned"
 
                             if is_revoked:
                                 revocation_date_dt = ocsp_resp.revocation_time_utc
@@ -298,7 +313,7 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fa
     sys.stderr.write(f"Final cert without precert: {final_without_precert}\n")
     sys.stderr.write(f"Precert without final cert: {precert_without_final}\n")
 
-def process_cert_list(cert_list, output_format, incident_discovered, crtsh_flag, fast_threshold):
+def process_cert_list(cert_list, output_format, incident_discovered, revocation_window, crtsh_flag, fast_threshold):
     """Convert cert list to CSV format and process using existing process_pem_csv function"""
     import io
     
@@ -312,13 +327,15 @@ def process_cert_list(cert_list, output_format, incident_discovered, crtsh_flag,
     
     # Reset to beginning and process
     csv_content.seek(0)
-    process_pem_csv([csv_content], output_format, incident_discovered, crtsh_flag, fast_threshold)
+    process_pem_csv([csv_content], output_format, incident_discovered, revocation_window, crtsh_flag, fast_threshold)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_path', help='Path to .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files')
     parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Output format (csv or json)')
     parser.add_argument('--incident', help="Optional incident discovery datetime in ISO 8601 (e.g. 2025-07-29T15:00:00Z)")
+    parser.add_argument('--revocation-window', choices=['24h', '5d', '7d'], default='24h',
+                        help="Time allowed for revocation after incident discovery. Options: 24h (default), 5d, 7d.")
     parser.add_argument('--crtsh', action='store_true', help="Write crt.sh links to crtsh_links.txt if over 10k certs")
     parser.add_argument('--fast-threshold', type=int, default=10000, help="Certificate count threshold to enable fast mode (default: 10000)")
     args = parser.parse_args()
@@ -331,14 +348,21 @@ def main():
             logger.error("Invalid incident datetime format. Use ISO 8601 like '2025-07-29T15:00:00Z'.")
             sys.exit(1)
 
+    revocation_windows = {
+        '24h': datetime.timedelta(hours=24),
+        '5d': datetime.timedelta(days=5),
+        '7d': datetime.timedelta(days=7)
+    }
+    revocation_window = revocation_windows[args.revocation_window]
+
     input_path = args.input_path
 
     if input_path.endswith('.csv'):
         with open(input_path, newline='') as csvfile:
-            process_pem_csv([csvfile], args.format, incident_discovered, args.crtsh, args.fast_threshold)
+            process_pem_csv([csvfile], args.format, incident_discovered, revocation_window, args.crtsh, args.fast_threshold)
     elif input_path.endswith('.pem') and os.path.exists(input_path):
         cert = load_cert_from_file(input_path)
-        check_cert(cert, incident_discovered)
+        check_cert(cert, incident_discovered, revocation_window)
     elif input_path.endswith('.zip'):
         logger.info("Processing ZIP file...")
         cert_generator = load_certs_from_zip(input_path)
@@ -346,7 +370,7 @@ def main():
         if not cert_list:
             logger.error("No certificates found to process")
             sys.exit(1)
-        process_cert_list(cert_list, args.format, incident_discovered, args.crtsh, args.fast_threshold)
+        process_cert_list(cert_list, args.format, incident_discovered, revocation_window, args.crtsh, args.fast_threshold)
     elif os.path.isdir(input_path):
         logger.info("Processing directory...")
         cert_generator = load_certs_from_directory(input_path)
@@ -354,7 +378,7 @@ def main():
         if not cert_list:
             logger.error("No certificates found to process")
             sys.exit(1)
-        process_cert_list(cert_list, args.format, incident_discovered, args.crtsh, args.fast_threshold)
+        process_cert_list(cert_list, args.format, incident_discovered, revocation_window, args.crtsh, args.fast_threshold)
     else:
         logger.error("Unsupported input. Provide a .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files.")
 

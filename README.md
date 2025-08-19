@@ -10,6 +10,9 @@ A Python package for processing X.509 certificates and validating their revocati
 - **Bulk Processing**: Handle thousands of certificates efficiently
 - **Progress Tracking**: Visual progress bars for large datasets
 - **Library & CLI**: Use as a command-line tool or import as a Python library
+- **CCADB Integration**: Fetch trusted CA certificates directly from Mozilla's CCADB
+- **Certificate & CRL Validation**: Verify if a certificate or CRL is issued by a CA in the CCADB
+- **Pluggable HTTP Client**: Inject custom httpx.Client instances for retries, timeouts, or testing
 
 ## Installation
 
@@ -109,9 +112,15 @@ Optionally provide an incident discovery datetime using the `--incident` paramet
   - If the incident discovery time is **within 24 hours** of the revocation time, the **Revocation Status** will be `"Yes"`.
   - If the certificate is expired, the status will be `"N/A"` regardless of incident time.
 
+- `--revocation-window` [Optional]
+  - Specifies the maximum allowed time between the discovery of an incident and the certificate revocation, when used with the `--incident argument`.
+  - Can be 24h, 5d, or 7d 
+  - Default is 24h
+  - All delay comparisons use that dynamic window
+
 ---
 
 ## Usage
 
 ```bash
-python main.py sample_data.csv --format csv > sample_data_output.csv
+dossier sample_data.csv --format csv > sample_data_output.csv
