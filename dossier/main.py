@@ -298,7 +298,7 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, crtsh_flag, fa
     sys.stderr.write(f"Final cert without precert: {final_without_precert}\n")
     sys.stderr.write(f"Precert without final cert: {precert_without_final}\n")
 
-def process_cert_list(cert_list, output_format='csv', incident_discovered=None, crtsh_flag=False, fast_threshold=10000):
+def process_cert_list(cert_list, output_format, incident_discovered, crtsh_flag, fast_threshold):
     """Convert cert list to CSV format and process using existing process_pem_csv function"""
     import io
     
