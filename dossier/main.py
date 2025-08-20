@@ -85,19 +85,51 @@ def _is_precert(cert):
     except x509.ExtensionNotFound:
         return False
 
-def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_window, crtsh_flag):
+def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_window, crtsh_flag, fast_threshold):
+    # First pass: quick count of unique certificates to determine if we should use fast mode
+    unique_serials = set()
+    pem_csv_list = list(pem_csvs)  # Convert to list so we can iterate twice
+    
+    for pem_csv in pem_csv_list:
+        pem_csv.seek(0)  # Reset to beginning
+        csv_reader = csv.DictReader(pem_csv)
+        for row in csv_reader:
+            pem = row.get('pem')
+            if pem:
+                try:
+                    cert = x509.load_pem_x509_certificate(pem.encode())
+                    serial_number = hex(cert.serial_number)[2:]
+                    unique_serials.add(serial_number)
+                except ValueError:
+                    # Skip invalid PEMs in counting phase
+                    continue
+        pem_csv.seek(0)  # Reset for actual processing
+    
+    unique_cert_count = len(unique_serials)
+    
+    # Check if we should use fast mode based on unique certificates, not total PEMs
+    fast_mode = unique_cert_count >= fast_threshold
+    
+    if fast_mode:
+        logger.info(f"🚀 Unique certificate count ({unique_cert_count}) exceeds fast mode threshold ({fast_threshold})")
+        logger.info("🚀 Fast mode enabled - skipping detailed parsing and revocation checks")
+    else:
+        logger.info(f"Processing {unique_cert_count} unique certificates in normal mode")
     all_certs = {}
-    year_bucket = collections.Counter()
-
     total_certs = 0
-    revoked_count = 0
-    expired_without_revocation_count = 0
-    valid_not_revoked_count = 0
-    final_without_precert = 0
-    precert_without_final = 0
+    
+    if not fast_mode:
+        # Normal mode variables
+        year_bucket = collections.Counter()
+        revoked_count = 0
+        expired_without_revocation_count = 0
+        valid_not_revoked_count = 0
+        final_without_precert = 0
+        precert_without_final = 0
 
-    for pem_csv in pem_csvs:
-        logger.info('Parsing %s', pem_csv.name if hasattr(pem_csv, 'name') else 'certificates')
+    for pem_csv in pem_csv_list:
+        logger.info('Fast processing %s' if fast_mode else 'Parsing %s', 
+                   pem_csv.name if hasattr(pem_csv, 'name') else 'certificates')
 
         for line_idx, row in tqdm.tqdm(enumerate(csv.DictReader(pem_csv))):
             pem = row.get('pem')
@@ -116,70 +148,93 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_win
 
             cert_entry = all_certs.get(serial_number)
             if cert_entry is None:
-                cert_entry = {
-                    'subject': cert.subject.rfc4514_string(),
-                    'issuer': cert.issuer.rfc4514_string(),
-                    'not_before': cert.not_valid_before_utc.isoformat(),
-                    'not_after': cert.not_valid_after_utc.isoformat(),
-                    'dns_names': _get_dnsnames(cert),
-                }
+                if fast_mode:
+                    # Minimal data extraction for fast mode - only need serial for tracking
+                    cert_entry = {}
+                else:
+                    # Full data extraction for normal mode
+                    cert_entry = {
+                        'subject': cert.subject.rfc4514_string(),
+                        'issuer': cert.issuer.rfc4514_string(),
+                        'not_before': cert.not_valid_before_utc.isoformat(),
+                        'not_after': cert.not_valid_after_utc.isoformat(),
+                        'dns_names': _get_dnsnames(cert),
+                    }
 
-                revocation_status = 'N/A'
-                revocation_date = 'N/A'
-                revocation_reason = 'N/A'
-
-                if cert.not_valid_after_utc < now:
+                    # Only do revocation checking in normal mode
                     revocation_status = 'N/A'
                     revocation_date = 'N/A'
                     revocation_reason = 'N/A'
-                else:
-                    ocsp_resp = get_revocation_status(cert)
 
-                    if ocsp_resp is None:
-                        logger.error('No OCSP response returned for certificate with serial: %s', serial_number)
-                        revocation_status = 'OCSP Error'
+                    if cert.not_valid_after_utc < now:
+                        revocation_status = 'N/A'
                         revocation_date = 'N/A'
                         revocation_reason = 'N/A'
                     else:
-                        is_revoked = ocsp_resp.revocation_time_utc is not None
+                        ocsp_resp = get_revocation_status(cert)
 
-                        if is_revoked:
-                            revocation_date_dt = ocsp_resp.revocation_time_utc
-                            revocation_date = revocation_date_dt.isoformat()
-                            revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
-
-                            if incident_discovered:
-                                delta = revocation_date_dt - incident_discovered
-                                revocation_status = "Delayed" if delta > revocation_window else "Yes"
-                            else:
-                                revocation_status = "Yes"
+                        if ocsp_resp is None:
+                            logger.error('No OCSP response returned for certificate with serial: %s', serial_number)
+                            revocation_status = 'OCSP Error'
+                            revocation_date = 'N/A'
+                            revocation_reason = 'N/A'
                         else:
-                            revocation_status = "Planned"
+                            is_revoked = ocsp_resp.revocation_time_utc is not None
 
-                cert_entry['revocation_status'] = revocation_status
-                cert_entry['revocation_date'] = revocation_date
-                cert_entry['revocation_reason'] = revocation_reason
+                            if is_revoked:
+                                revocation_date_dt = ocsp_resp.revocation_time_utc
+                                revocation_date = revocation_date_dt.isoformat()
+                                revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
 
-                issued_year = cert.not_valid_before_utc.year
-                year_bucket[issued_year] += 1
+                                if incident_discovered:
+                                    delta = revocation_date_dt - incident_discovered
+                                    revocation_status = "Delayed" if delta > revocation_window else "Yes"
+                                else:
+                                    revocation_status = "Yes"
+                            else:
+                                revocation_status = "Planned"
+
+                            if is_revoked:
+                                revocation_date_dt = ocsp_resp.revocation_time_utc
+                                revocation_date = revocation_date_dt.isoformat()
+                                revocation_reason = ocsp_resp.revocation_reason.name if ocsp_resp.revocation_reason else "unspecified"
+
+                                if incident_discovered:
+                                    delta = revocation_date_dt - incident_discovered
+                                    revocation_status = "Delayed" if delta > datetime.timedelta(hours=24) else "Yes"
+                                else:
+                                    revocation_status = "Yes"
+                            else:
+                                revocation_status = "Planned"
+
+                    cert_entry['revocation_status'] = revocation_status
+                    cert_entry['revocation_date'] = revocation_date
+                    cert_entry['revocation_reason'] = revocation_reason
+
+                    issued_year = cert.not_valid_before_utc.year
+                    year_bucket[issued_year] += 1
 
                 all_certs[serial_number] = cert_entry
 
+            # Extract fingerprints for both modes
             fingerprint_key = 'precert_fingerprint_sha256' if _is_precert(cert) else 'final_cert_fingerprint_sha256'
-            if fingerprint_key in cert_entry:
+            if not fast_mode and fingerprint_key in cert_entry:
                 logger.error('Duplicate key "%s" for serial number %s found, overwriting', fingerprint_key, cert.serial_number)
 
             cert_entry[fingerprint_key] = cert.fingerprint(hashes.SHA256()).hex()
 
-            if revocation_status == 'Yes':
-                revoked_count += 1
-            elif cert.not_valid_after_utc < now:
-                expired_without_revocation_count += 1
-            else:
-                valid_not_revoked_count += 1
+            # Only count revocation status in normal mode
+            if not fast_mode:
+                if revocation_status == 'Yes':
+                    revoked_count += 1
+                elif cert.not_valid_after_utc < now:
+                    expired_without_revocation_count += 1
+                else:
+                    valid_not_revoked_count += 1
 
-    if crtsh_flag or len(all_certs) >= 10000:
-        logger.info("Over 10,000 certificates found. Writing crt.sh links to crtsh_links.txt")
+    # Write crt.sh links if in fast mode OR if crtsh_flag is set OR if over threshold
+    if fast_mode or crtsh_flag or len(all_certs) >= fast_threshold:
+        logger.info(f"Writing crt.sh links for {len(all_certs)} unique certificates to crtsh_links.txt")
 
         with open("crtsh_links.txt", "w") as f:
             for cert_entry in all_certs.values():
@@ -190,17 +245,32 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_win
                 if precert_fingerprint:
                     f.write(f"https://crt.sh/?sha256={precert_fingerprint}\n")
 
-    for entry in all_certs.values():
-        has_final = "final_cert_fingerprint_sha256" in entry
-        has_precert = "precert_fingerprint_sha256" in entry
+    # Count final/precert relationships (only in normal mode)
+    if not fast_mode:
+        for entry in all_certs.values():
+            has_final = "final_cert_fingerprint_sha256" in entry
+            has_precert = "precert_fingerprint_sha256" in entry
 
-        if has_final and not has_precert:
-            final_without_precert += 1
-        elif has_precert and not has_final:
-            precert_without_final += 1
+            if has_final and not has_precert:
+                final_without_precert += 1
+            elif has_precert and not has_final:
+                precert_without_final += 1
 
+    # Output results
+    if fast_mode:
+        # Fast mode: Only output the crt.sh links file - no CSV/JSON output needed
+        sys.stderr.write("\n🚀 Fast Mode Summary:\n")
+        sys.stderr.write(f"Total Certs Processed: {total_certs}\n")
+        sys.stderr.write(f"Unique Certificates: {len(all_certs)}\n")
+        sys.stderr.write(f"crt.sh links written to: crtsh_links.txt\n")
+        sys.stderr.write("Note: For CA incidents >10k certs, only crt.sh URLs are required\n")
+        return
+    
+    # Normal mode output
     if output_format == 'csv':
         c = csv.writer(sys.stdout, lineterminator='\n')
+        
+        # Normal mode CSV header
         c.writerow(['Precertificate SHA-256 Hash', 'Certificate SHA-256 Hash', 'Subject', 'Issuer', 'Not before', 'Not after', 'Serial #', 'dNSNames', 'Is Revoked?', 'Revocation Date', 'Revocation Reason'])
 
         for serial_number, cert_entry in sorted(list(all_certs.items()), key=lambda x: x[1]['not_before'], reverse=True):
@@ -224,6 +294,7 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_win
                 cert_entry['revocation_reason'],
             ])
     else:
+        # JSON output
         output_list = []
         for serial_number, cert_entry in sorted(all_certs.items(), key=lambda x: x[1]['not_before'], reverse=True):
             cert_entry_with_serial = {'serial_number': serial_number, **cert_entry}
@@ -232,6 +303,7 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_win
         json.dump(output_list, sys.stdout, indent=2)
         sys.stdout.write('\n')
 
+    # Summary output
     sys.stderr.write("\nSummary:\n")
     sys.stderr.write(f'{year_bucket}\n')
     sys.stderr.write(f"Total Certs: {total_certs}\n")
@@ -241,7 +313,7 @@ def process_pem_csv(pem_csvs, output_format, incident_discovered, revocation_win
     sys.stderr.write(f"Final cert without precert: {final_without_precert}\n")
     sys.stderr.write(f"Precert without final cert: {precert_without_final}\n")
 
-def process_cert_list(cert_list, output_format='csv', incident_discovered=None, revocation_window=datetime.timedelta(hours=24), crtsh_flag=False):
+def process_cert_list(cert_list, output_format, incident_discovered, revocation_window, crtsh_flag, fast_threshold):
     """Convert cert list to CSV format and process using existing process_pem_csv function"""
     import io
     
@@ -255,7 +327,7 @@ def process_cert_list(cert_list, output_format='csv', incident_discovered=None, 
     
     # Reset to beginning and process
     csv_content.seek(0)
-    process_pem_csv([csv_content], output_format, incident_discovered, revocation_window, crtsh_flag)
+    process_pem_csv([csv_content], output_format, incident_discovered, revocation_window, crtsh_flag, fast_threshold)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -265,6 +337,7 @@ def main():
     parser.add_argument('--revocation-window', choices=['24h', '5d', '7d'], default='24h',
                         help="Time allowed for revocation after incident discovery. Options: 24h (default), 5d, 7d.")
     parser.add_argument('--crtsh', action='store_true', help="Write crt.sh links to crtsh_links.txt if over 10k certs")
+    parser.add_argument('--fast-threshold', type=int, default=10000, help="Certificate count threshold to enable fast mode (default: 10000)")
     args = parser.parse_args()
 
     incident_discovered = None
@@ -286,7 +359,7 @@ def main():
 
     if input_path.endswith('.csv'):
         with open(input_path, newline='') as csvfile:
-            process_pem_csv([csvfile], args.format, incident_discovered, revocation_window, args.crtsh)
+            process_pem_csv([csvfile], args.format, incident_discovered, revocation_window, args.crtsh, args.fast_threshold)
     elif input_path.endswith('.pem') and os.path.exists(input_path):
         cert = load_cert_from_file(input_path)
         check_cert(cert, incident_discovered, revocation_window)
@@ -297,7 +370,7 @@ def main():
         if not cert_list:
             logger.error("No certificates found to process")
             sys.exit(1)
-        process_cert_list(cert_list, args.format, incident_discovered, revocation_window, args.crtsh)
+        process_cert_list(cert_list, args.format, incident_discovered, revocation_window, args.crtsh, args.fast_threshold)
     elif os.path.isdir(input_path):
         logger.info("Processing directory...")
         cert_generator = load_certs_from_directory(input_path)
@@ -305,7 +378,7 @@ def main():
         if not cert_list:
             logger.error("No certificates found to process")
             sys.exit(1)
-        process_cert_list(cert_list, args.format, incident_discovered, revocation_window, args.crtsh)
+        process_cert_list(cert_list, args.format, incident_discovered, revocation_window, args.crtsh, args.fast_threshold)
     else:
         logger.error("Unsupported input. Provide a .pem file, .csv file, directory containing .pem files, or .zip file containing .pem files.")
 

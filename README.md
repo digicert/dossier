@@ -12,7 +12,6 @@ A Python package for processing X.509 certificates and validating their revocati
 - **Library & CLI**: Use as a command-line tool or import as a Python library
 - **CCADB Integration**: Fetch trusted CA certificates directly from Mozilla's CCADB
 - **Certificate & CRL Validation**: Verify if a certificate or CRL is issued by a CA in the CCADB
-- **Pluggable HTTP Client**: Inject custom httpx.Client instances for retries, timeouts, or testing
 
 ## Installation
 
