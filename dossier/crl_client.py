@@ -15,17 +15,13 @@ class CrlClient:
         self,
         issuer: x509.Certificate,
         http_client: httpx.Client,
-        *,
+        current_time: datetime.datetime,
         crl_full_uri: Optional[str] = None,
         crl_partitioned_uris: Optional[List[str]] = None,
-        current_time: Optional[datetime.datetime] = None,
     ):
-        self._current_time = current_time or datetime.datetime.now(
-            datetime.timezone.utc
-        )
-
-        self._http_client = http_client
         self._issuer = issuer
+        self._http_client = http_client
+        self._current_time = current_time
 
         if (not crl_full_uri and not crl_partitioned_uris) or (
             crl_full_uri and crl_partitioned_uris

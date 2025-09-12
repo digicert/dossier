@@ -29,6 +29,7 @@ dependencies = [
     "requests",
     "tqdm",
     "httpx",
+    "python-dateutil",
 ]
 
 [project.optional-dependencies]
