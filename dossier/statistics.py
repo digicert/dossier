@@ -1,29 +1,47 @@
 import collections
-import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Statistics:
-    def __init__(self):
+    def _initialize(self):
         self.certificate_count_by_issuance_year = collections.defaultdict(int)
-        self.revoked_count = 0
-        self.expired_without_revocation_count = 0
-        self.valid_not_revoked_count = 0
+        self.delayed_valid_cert_count = 0
+        self.delayed_revoked_cert_count = 0
+        self.timely_revoked_cert_count = 0
+        self.expired_cert_count = 0
+        self.valid_cert_count = 0
         self.final_without_precert = 0
         self.precert_without_final = 0
+        self.unknown_cert_type = 0
+        self.duplicate_cert_count = 0
+        self.cert_count_by_revocation_reason_code = collections.defaultdict(int)
 
-    def write(self, writer: io.TextIOBase) -> None:
-        writer.write(
-            f"Certificate count by issuance year: {self.certificate_count_by_issuance_year}\n"
+    def __init__(self):
+        self._initialize()
+
+    def reset(self):
+        self._initialize()
+
+    def output(self) -> None:
+        (
+            logger.info(
+                f"Certificate count by issuance year: {self.certificate_count_by_issuance_year}\n"
+            )
         )
-        writer.write(f"Revoked count: {self.revoked_count}\n")
-        writer.write(
-            f"Expired without revocation count: {self.expired_without_revocation_count}\n"
+        logger.info(f"Delayed valid cert count: {self.delayed_valid_cert_count}\n")
+        logger.info(f"Delayed revoked cert count: {self.delayed_revoked_cert_count}\n")
+        logger.info(f"Timely revoked cert count: {self.timely_revoked_cert_count}\n")
+        logger.info(f"Expired cert count: {self.expired_cert_count}\n")
+        logger.info(f"Valid cert count: {self.valid_cert_count}\n")
+        logger.info(f"Final cert without precert: {self.final_without_precert}\n")
+        logger.info(f"Precert without final cert: {self.precert_without_final}\n")
+        logger.info(f"Unknown cert type: {self.unknown_cert_type}\n")
+        logger.info(f"Duplicate cert count: {self.duplicate_cert_count}\n")
+        logger.info(
+            f"Cert count by revocation reason code: {self.cert_count_by_revocation_reason_code}\n"
         )
-        writer.write(f"Valid not revoked count: {self.valid_not_revoked_count}\n")
-        writer.write(f"Final without precert count: {self.final_without_precert}\n")
-        writer.write(
-            f"Precert without final cert count: {self.precert_without_final}\n"
-        )
-        writer.write(
-            f"Total cert count: {self.revoked_count + self.expired_without_revocation_count + self.valid_not_revoked_count}"
-        )
+
+
+INSTANCE = Statistics()

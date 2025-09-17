@@ -60,6 +60,8 @@ class CrlClient:
     def _download_and_validate_crl(
         self, uri: str, is_full: bool
     ) -> x509.CertificateRevocationList:
+        logger.info("Downloading CRL from %s", uri)
+
         resp = self._http_client.get(uri)
         resp.raise_for_status()
 

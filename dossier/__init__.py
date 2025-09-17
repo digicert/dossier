@@ -21,7 +21,7 @@ from .main import main
 
 __all__ = [
     "load_cert_from_file",
-    "load_cert_from_base64", 
+    "load_cert_from_base64",
     "load_certs_from_directory",
     "load_certs_from_zip",
     "load_certs_from_directory_list",

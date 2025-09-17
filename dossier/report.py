@@ -1,39 +1,30 @@
 import csv
 import datetime
 import io
-from typing import List, Optional, NamedTuple, Iterator
+from typing import List, Optional, NamedTuple, Sequence
 
 from dossier import revocation
 
 
-class LinkReportEntry(NamedTuple):
-    sha256_hash: bytes
-
-
-def write_link_report(report_entries: List[LinkReportEntry], output_io: io.TextIOBase):
-    for entry in report_entries:
-        print(f"https://crt.sh/?sha256={entry.sha256_hash.hex()}", file=output_io)
-
-
-class FullReportEntry(NamedTuple):
+class ReportEntry(NamedTuple):
     serial_number: int
     subject: str
     issuer: str
     not_before: datetime.datetime
     not_after: datetime.datetime
     dns_names: str
-    precert_sha256_hash: Optional[bytes] = None
-    final_cert_sha256_hash: Optional[bytes] = None
-    revocation_info: Optional[revocation.RevocationInfo] = None
-
-    def to_link_report_entries(self) -> Iterator[LinkReportEntry]:
-        if self.precert_sha256_hash:
-            yield LinkReportEntry(self.precert_sha256_hash)
-        if self.final_cert_sha256_hash:
-            yield LinkReportEntry(self.final_cert_sha256_hash)
+    revocation_info: Optional[revocation.RevocationInfo]
+    precert_sha256_hashes: List[bytes] = []
+    final_cert_sha256_hashes: List[bytes] = []
 
 
-def write_full_report(report_entries: List[FullReportEntry], output_io: io.TextIOBase):
+def write_link_report(report_entries: Sequence[ReportEntry], output_io: io.TextIOBase):
+    for entry in report_entries:
+        for h in entry.precert_sha256_hashes + entry.final_cert_sha256_hashes:
+            print(f"https://crt.sh/?sha256={h.hex()}", file=output_io)
+
+
+def write_full_report(report_entries: Sequence[ReportEntry], output_io: io.TextIOBase):
     c = csv.writer(output_io)
 
     c.writerow(
@@ -55,8 +46,8 @@ def write_full_report(report_entries: List[FullReportEntry], output_io: io.TextI
     for entry in report_entries:
         c.writerow(
             [
-                entry.precert_sha256_hash,
-                entry.final_cert_sha256_hash,
+                ",".join(h.hex() for h in entry.precert_sha256_hashes),
+                ",".join(h.hex() for h in entry.final_cert_sha256_hashes),
                 entry.subject,
                 entry.issuer,
                 entry.not_before.isoformat(),

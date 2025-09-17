@@ -24,7 +24,6 @@ classifiers = [
 ]
 keywords = ["certificates", "x509", "ocsp", "ssl", "tls", "cryptography"]
 dependencies = [
-    "asn1crypto",
     "cryptography",
     "requests",
     "tqdm",

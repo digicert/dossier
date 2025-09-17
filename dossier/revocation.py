@@ -3,14 +3,13 @@ import enum
 import functools
 import logging
 import typing
-from typing import Optional, Mapping, Any
+from typing import Optional
 
 import httpx
 from cryptography import x509
 
-from dossier import CrlClient
+from dossier import CrlClient, statistics
 from dossier.ccadb_client import CcadbClient, CcadbEntry
-
 
 logger = logging.getLogger(__name__)
 
@@ -50,20 +49,32 @@ class RevocationClassifier:
         self,
         revocation_timeline: RevocationWindow,
         incident_discovery_datetime: datetime.datetime,
+        current_time: datetime.datetime,
     ):
         self._revocation_deadline_datetime = (
             incident_discovery_datetime + revocation_timeline.value
         )
+        self._current_time = current_time
 
     def classify_revocation(self, crl_entry: Optional[x509.RevokedCertificate]) -> str:
         if crl_entry is None:
+            statistics.INSTANCE.valid_cert_count += 1
+
+            if self._current_time > self._revocation_deadline_datetime:
+                statistics.INSTANCE.delayed_valid_cert_count += 1
+
             return "Planned"
         else:
-            return (
-                "Yes"
-                if crl_entry.revocation_date < self._revocation_deadline_datetime
-                else "Delayed"
-            )
+            statistics.INSTANCE.revoked_cert_count += 1
+
+            if crl_entry.revocation_date_utc < self._revocation_deadline_datetime:
+                statistics.INSTANCE.timely_revoked_cert_count += 1
+
+                return "Yes"
+            else:
+                statistics.INSTANCE.delayed_revoked_cert_count += 1
+
+                return "Delayed"
 
 
 class RevocationInfo(typing.NamedTuple):
@@ -124,14 +135,25 @@ class RevocationManager:
             )
         else:
             crl_client = self._get_crl_client(issuer_entry)
-            crl_entry = crl_client.get_revocation_status(cert.serial_number)
 
-            revocation_status = self._classifier.classify_revocation(crl_entry)
+            if cert.not_valid_after_utc >= self._current_time:
+                crl_entry = crl_client.get_revocation_status(cert.serial_number)
+
+                revocation_status = self._classifier.classify_revocation(crl_entry)
+            else:
+                crl_entry = None
+
+                statistics.INSTANCE.expired_cert_count += 1
+
             if crl_entry is not None:
                 revocation_date = crl_entry.revocation_date_utc.isoformat()
 
                 reason_code = self._extract_reason_code_str(crl_entry)
                 if reason_code is not None:
                     revocation_reason = reason_code
+
+                    statistics.INSTANCE.cert_count_by_revocation_reason_code[
+                        reason_code
+                    ] += 1
 
         return RevocationInfo(revocation_status, revocation_date, revocation_reason)
