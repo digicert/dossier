@@ -8,7 +8,7 @@ from dateutil import parser as datetime_parser
 
 from dossier import revocation, ccadb_client, processor, report
 
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,18 @@ def main():
     )
     parser.add_argument(
         "--show-progress", action="store_true", help="Show progress bars"
+    )
+    parser.add_argument(
+        "--output-file",
+        type=argparse.FileType("w"),
+        help="Output file (default: stdout)",
+        default=sys.stdout,
+    )
+    parser.add_argument(
+        "--log-file",
+        type=argparse.FileType("w"),
+        help="Log file (default: stderr)",
+        default=sys.stderr,
     )
     parser.add_argument(
         "incident_discovery_datetime",
@@ -62,9 +74,9 @@ def main():
     entries = proc.process_files(args.input_files)
 
     if len(entries) >= args.full_report_threshold:
-        report.write_link_report(entries, sys.stdout)
+        report.write_link_report(entries, args.output_file)
     else:
-        report.write_full_report(entries, sys.stdout)
+        report.write_full_report(entries, args.output_file)
 
 
 if __name__ == "__main__":

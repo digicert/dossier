@@ -19,13 +19,20 @@ class CsvFileReader(CertificateReader):
     def __init__(self, csv_io: io.FileIO):
         self._text_io = io.TextIOWrapper(csv_io, encoding="utf-8")
 
-        self._csv = csv.reader(self._text_io, newline="")
+        self._csv = csv.DictReader(self._text_io)
 
     def read(self) -> Iterator[x509.Certificate]:
         try:
             for idx, row in enumerate(self._csv):
+                pem = row.get("pem") or row.get("PEM")
+                if pem is None:
+                    msg = f'No "pem" or "PEM" column found in CSV row #{idx + 1}'
+
+                    logging.error(msg)
+
+                    raise ValueError(msg)
                 try:
-                    yield x509.load_pem_x509_certificate(row[0].encode())
+                    yield x509.load_pem_x509_certificate(pem.encode())
                 except ValueError as e:
                     logging.error("Failed to parse PEM in CSV row #%d: %s", idx + 1, e)
 

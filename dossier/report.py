@@ -14,8 +14,8 @@ class ReportEntry(NamedTuple):
     not_after: datetime.datetime
     dns_names: str
     revocation_info: Optional[revocation.RevocationInfo]
-    precert_sha256_hashes: List[bytes] = []
-    final_cert_sha256_hashes: List[bytes] = []
+    precert_sha256_hashes: List[bytes]
+    final_cert_sha256_hashes: List[bytes]
 
 
 def write_link_report(report_entries: Sequence[ReportEntry], output_io: io.TextIOBase):

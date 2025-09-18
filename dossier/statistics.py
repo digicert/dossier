@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 
 class Statistics:
     def _initialize(self):
-        self.certificate_count_by_issuance_year = collections.defaultdict(int)
         self.delayed_valid_cert_count = 0
         self.delayed_revoked_cert_count = 0
         self.timely_revoked_cert_count = 0
@@ -16,6 +15,7 @@ class Statistics:
         self.precert_without_final = 0
         self.unknown_cert_type = 0
         self.duplicate_cert_count = 0
+        self.total_cert_count = 0
         self.cert_count_by_revocation_reason_code = collections.defaultdict(int)
 
     def __init__(self):
@@ -25,11 +25,6 @@ class Statistics:
         self._initialize()
 
     def output(self) -> None:
-        (
-            logger.info(
-                f"Certificate count by issuance year: {self.certificate_count_by_issuance_year}\n"
-            )
-        )
         logger.info(f"Delayed valid cert count: {self.delayed_valid_cert_count}\n")
         logger.info(f"Delayed revoked cert count: {self.delayed_revoked_cert_count}\n")
         logger.info(f"Timely revoked cert count: {self.timely_revoked_cert_count}\n")
@@ -39,6 +34,7 @@ class Statistics:
         logger.info(f"Precert without final cert: {self.precert_without_final}\n")
         logger.info(f"Unknown cert type: {self.unknown_cert_type}\n")
         logger.info(f"Duplicate cert count: {self.duplicate_cert_count}\n")
+        logger.info(f"Total cert count: {self.total_cert_count}\n")
         logger.info(
             f"Cert count by revocation reason code: {self.cert_count_by_revocation_reason_code}\n"
         )

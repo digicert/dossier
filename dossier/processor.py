@@ -1,6 +1,7 @@
 import enum
 import io
 import logging
+from turtledemo.penrose import start
 from typing import List, Optional
 
 import tqdm
@@ -9,7 +10,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.x509 import oid
 
 from dossier import statistics, cert_loader
-from dossier.report import LinkReportEntry, ReportEntry
+from dossier.report import ReportEntry
 from dossier.revocation import RevocationManager
 
 logger = logging.getLogger(__name__)
@@ -95,8 +96,13 @@ class Processor:
                 continue
 
             for cert in tqdm.tqdm(
-                reader.read(), desc=input_file.name, disable=not self._show_progress
+                reader.read(),
+                desc=input_file.name,
+                disable=not self._show_progress,
+                initial=statistics.INSTANCE.total_cert_count,
             ):
+                statistics.INSTANCE.total_cert_count += 1
+
                 fingerprint = cert.fingerprint(hashes.SHA256())
 
                 if fingerprint in fingerprints_seen:
@@ -110,7 +116,9 @@ class Processor:
 
                 fingerprints_seen.add(fingerprint)
 
-                entry = entries_by_issuer_and_serial_number.get(cert.serial_number)
+                key = (cert.issuer.public_bytes(), cert.serial_number)
+
+                entry = entries_by_issuer_and_serial_number.get(key)
                 if entry is None:
                     cert_type = _get_certificate_type(cert)
                     if cert_type is None:
@@ -132,26 +140,42 @@ class Processor:
                         cert.not_valid_after_utc,
                         _get_dnsnames(cert),
                         revocation_info,
+                        [],
+                        [],
                     )
 
-                    entries_by_issuer_and_serial_number[cert.serial_number] = entry
+                    entries_by_issuer_and_serial_number[key] = entry
 
                 if _is_precert(cert):
-                    if entry.precert_sha256_hash:
+                    if entry.precert_sha256_hashes:
                         logger.error(
-                            "Multiple pre-certificates with SHA-256 fingerprint %s found",
-                            fingerprint.hex(),
+                            "Multiple pre-certificates with serial number %d and issuer %s found",
+                            cert.serial_number,
+                            cert.issuer.rfc4514_string(),
                         )
 
-                    entry.precert_sha256_hash.append(fingerprint)
+                    entry.precert_sha256_hashes.append(fingerprint)
                 else:
-                    if entry.final_cert_sha256_hash:
+                    if entry.final_cert_sha256_hashes:
                         logger.error(
-                            "Multiple final certificates with SHA-256 fingerprint %s found",
-                            fingerprint.hex(),
+                            "Multiple final certificates with serial number %d and issuer %s found",
+                            cert.serial_number,
+                            cert.issuer.rfc4514_string(),
                         )
-                    entry.final_cert_sha256_hash.append(fingerprint)
 
-            statistics.INSTANCE.output()
+                    entry.final_cert_sha256_hashes.append(fingerprint)
 
-            return list(entries_by_issuer_and_serial_number.values())
+        statistics.INSTANCE.final_without_precert = sum(
+            1
+            for entry in entries_by_issuer_and_serial_number.values()
+            if entry.final_cert_sha256_hashes and not entry.precert_sha256_hashes
+        )
+        statistics.INSTANCE.precert_without_final = sum(
+            1
+            for entry in entries_by_issuer_and_serial_number.values()
+            if entry.precert_sha256_hashes and not entry.final_cert_sha256_hashes
+        )
+
+        statistics.INSTANCE.output()
+
+        return list(entries_by_issuer_and_serial_number.values())

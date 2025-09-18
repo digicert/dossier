@@ -8,7 +8,8 @@ from typing import Optional
 import httpx
 from cryptography import x509
 
-from dossier import CrlClient, statistics
+from dossier import statistics
+from crl_client import CrlClient
 from dossier.ccadb_client import CcadbClient, CcadbEntry
 
 logger = logging.getLogger(__name__)
@@ -65,8 +66,6 @@ class RevocationClassifier:
 
             return "Planned"
         else:
-            statistics.INSTANCE.revoked_cert_count += 1
-
             if crl_entry.revocation_date_utc < self._revocation_deadline_datetime:
                 statistics.INSTANCE.timely_revoked_cert_count += 1
 
