@@ -27,6 +27,9 @@ _FULL_CRL_ISSUER = x509.load_der_x509_certificate(
 )
 
 
+_NOW = datetime.datetime.now(tz=datetime.timezone.utc)
+
+
 def _create_null_http_client() -> httpx.Client:
     return httpx.Client(
         transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b""))
@@ -46,6 +49,7 @@ def test_reject_both_full_and_partitioned_crls():
         CrlClient(
             _FULL_CRL_ISSUER,
             _create_null_http_client(),
+            _NOW,
             crl_full_uri=_FULL_CRL_URI,
             crl_partitioned_uris=list(_PARTITIONED_CRLS.keys()),
         )
@@ -56,6 +60,7 @@ def test_reject_neither_full_nor_partitioned_crls():
         CrlClient(
             _FULL_CRL_ISSUER,
             _create_null_http_client(),
+            _NOW,
         )
 
 
@@ -66,6 +71,7 @@ def test_download_crl_404():
         CrlClient(
             _FULL_CRL_ISSUER,
             http_client,
+            _NOW,
             crl_full_uri=_FULL_CRL_URI,
         )
 
@@ -77,6 +83,7 @@ def test_download_crl_invalid_content():
         CrlClient(
             _FULL_CRL_ISSUER,
             http_client,
+            _NOW,
             crl_full_uri=_FULL_CRL_URI,
         )
 

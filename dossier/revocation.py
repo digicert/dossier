@@ -9,7 +9,7 @@ import httpx
 from cryptography import x509
 
 from dossier import statistics
-from crl_client import CrlClient
+from dossier.crl_client import CrlClient
 from dossier.ccadb_client import CcadbClient, CcadbEntry
 
 logger = logging.getLogger(__name__)
