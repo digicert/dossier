@@ -57,7 +57,7 @@ def main():
 
     revocation_window = revocation.RevocationWindow.from_string(args.revocation_window)
 
-    http_client = httpx.Client(timeout=30.0, headers={"User-Agent": "dossier/1.0"})
+    http_client = httpx.Client(timeout=60.0, headers={"User-Agent": "dossier/1.0"})
 
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 

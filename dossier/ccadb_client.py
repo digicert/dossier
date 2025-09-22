@@ -82,13 +82,15 @@ class CcadbClient:
 
                 loaded_cert_count = 0
 
-                for row in csv.DictReader(response.iter_lines()):
+                for idx, row in enumerate(csv.DictReader(response.iter_lines())):
                     pem = row["X.509 Certificate (PEM)"]
 
                     try:
                         cert = x509.load_pem_x509_certificate(pem.encode())
-                    except ValueError as e:
-                        logger.exception(f"Failed to parse cert %s", pem)
+                    except ValueError:
+                        logger.exception(
+                            f"Failed to parse cert in CSV row #%d", idx + 1
+                        )
                         continue
 
                     ccadb_entry = self._ccadb_records_by_fingerprint.get(

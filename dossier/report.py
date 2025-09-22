@@ -25,7 +25,7 @@ def write_link_report(report_entries: Sequence[ReportEntry], output_io: io.TextI
 
 
 def write_full_report(report_entries: Sequence[ReportEntry], output_io: io.TextIOBase):
-    c = csv.writer(output_io)
+    c = csv.writer(output_io, lineterminator="\n")
 
     c.writerow(
         [

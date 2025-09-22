@@ -13,7 +13,7 @@ authors = [
 description = "Certificate processing and OCSP validation tool"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Security :: Cryptography",
     "Topic :: System :: Systems Administration",
 ]
-keywords = ["certificates", "x509", "ocsp", "ssl", "tls", "cryptography"]
+keywords = ["certificates", "x509", "smime", "ssl", "tls", "cryptography"]
 dependencies = [
     "cryptography",
     "requests",
@@ -57,10 +57,10 @@ dossier = ["py.typed"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py39']
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
