@@ -1,144 +1,96 @@
-"""
-Certificate loading utilities for various input formats.
-
-This module provides functions to load X.509 certificates from different sources:
-- Individual PEM files
-- Directories containing PEM files
-- ZIP archives containing PEM files
-- Base64 encoded certificate data
-"""
-
-import base64
-import glob
+import csv
+import io
 import logging
 import os
 import zipfile
-from typing import Iterator, Dict, Any, Optional, List
+from typing import Iterator, Optional
 
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend
 
 logger = logging.getLogger(__name__)
 
 
-def load_cert_from_file(pem_path: str) -> x509.Certificate:
-    """Load a single certificate from a PEM file.
-    
-    Args:
-        pem_path: Path to the PEM file
-        
-    Returns:
-        X.509 certificate object
-    """
-    with open(pem_path, 'rb') as f:
-        return x509.load_pem_x509_certificate(f.read(), default_backend())
+class CertificateReader:
+    def read(self) -> Iterator[x509.Certificate]:
+        pass
 
 
-def load_cert_from_base64(base64_str: str) -> Optional[x509.Certificate]:
-    """Load a certificate from base64 encoded DER data.
-    
-    Args:
-        base64_str: Base64 encoded certificate data
-        
-    Returns:
-        X.509 certificate object or None if failed
-    """
-    try:
-        pem_data = base64.b64decode(base64_str.encode('utf-8'))
-        return x509.load_der_x509_certificate(pem_data, default_backend())
-    except Exception as e:
-        logger.error(f'Error decoding base64 string: {e}')
-        return None
+class CsvFileReader(CertificateReader):
+    def __init__(self, csv_io: io.FileIO):
+        self._text_io = io.TextIOWrapper(csv_io, encoding="utf-8")
 
+        self._csv = csv.DictReader(self._text_io)
 
-def load_certs_from_directory(directory_path: str) -> Iterator[Dict[str, Any]]:
-    """Load all PEM certificates from a directory.
-    
-    Args:
-        directory_path: Path to directory containing .pem files
-        
-    Yields:
-        Dictionary containing cert, source, and pem_data for each certificate
-    """
-    pem_files = glob.glob(os.path.join(directory_path, "*.pem"))
-    
-    if not pem_files:
-        logger.warning(f"No .pem files found in directory: {directory_path}")
-        return
-    
-    logger.info(f"Found {len(pem_files)} PEM files in directory: {directory_path}")
-    
-    for pem_file in pem_files:
+    def read(self) -> Iterator[x509.Certificate]:
         try:
-            with open(pem_file, 'rb') as f:
-                cert_data = f.read()
-                cert = x509.load_pem_x509_certificate(cert_data, default_backend())
-                yield {
-                    'cert': cert,
-                    'source': os.path.basename(pem_file),
-                    'pem_data': cert_data.decode('utf-8')
-                }
-        except Exception as e:
-            logger.error(f"Failed to load certificate from {pem_file}: {e}")
+            for idx, row in enumerate(self._csv):
+                pem = row.get("pem") or row.get("PEM")
+                if pem is None:
+                    msg = f'No "pem" or "PEM" column found in CSV row #{idx + 1}'
 
+                    logging.error(msg)
 
-def load_certs_from_zip(zip_path: str) -> Iterator[Dict[str, Any]]:
-    """Load all PEM certificates from a zip file.
-    
-    Args:
-        zip_path: Path to ZIP file containing .pem files
-        
-    Yields:
-        Dictionary containing cert, source, and pem_data for each certificate
-    """
-    try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_file:
-            pem_files = [f for f in zip_file.namelist() if f.endswith('.pem') and not f.endswith('/')]
-            
-            if not pem_files:
-                logger.warning(f"No .pem files found in zip: {zip_path}")
-                return
-            
-            logger.info(f"Found {len(pem_files)} PEM files in zip: {zip_path}")
-            
-            for pem_file in pem_files:
+                    raise ValueError(msg)
                 try:
-                    cert_data = zip_file.read(pem_file)
-                    cert = x509.load_pem_x509_certificate(cert_data, default_backend())
-                    yield {
-                        'cert': cert,
-                        'source': os.path.basename(pem_file),
-                        'pem_data': cert_data.decode('utf-8')
-                    }
-                except Exception as e:
-                    logger.error(f"Failed to load certificate from {pem_file} in zip: {e}")
-    
-    except zipfile.BadZipFile:
-        logger.error(f"Invalid zip file: {zip_path}")
-    except Exception as e:
-        logger.error(f"Error reading zip file {zip_path}: {e}")
+                    yield x509.load_pem_x509_certificate(pem.encode())
+                except ValueError as e:
+                    logging.error("Failed to parse PEM in CSV row #%d: %s", idx + 1, e)
+
+                    continue
+        finally:
+            self._text_io.detach()
 
 
-# Convenience functions that return lists (for backwards compatibility)
-def load_certs_from_directory_list(directory_path: str) -> List[Dict[str, Any]]:
-    """Load all PEM certificates from a directory and return as a list.
-    
-    Args:
-        directory_path: Path to directory containing .pem files
-        
-    Returns:
-        List of dictionaries containing cert, source, and pem_data
-    """
-    return list(load_certs_from_directory(directory_path))
+class PemFileReader(CertificateReader):
+    def __init__(self, pem_io: io.FileIO):
+        self._pem_io = pem_io
+
+    def read(self) -> Iterator[x509.Certificate]:
+        # TODO: handle multiple PEM-encoded certificates
+
+        try:
+            yield x509.load_pem_x509_certificate(self._pem_io.read())
+        except ValueError as e:
+            logging.error("Failed to parse PEM: %s", e)
 
 
-def load_certs_from_zip_list(zip_path: str) -> List[Dict[str, Any]]:
-    """Load all PEM certificates from a zip file and return as a list.
-    
-    Args:
-        zip_path: Path to ZIP file containing .pem files
-        
-    Returns:
-        List of dictionaries containing cert, source, and pem_data
-    """
-    return list(load_certs_from_zip(zip_path))
+class ZipFileReader(CertificateReader):
+    def __init__(self, zip_io: io.FileIO):
+        self._zip_io = zipfile.ZipFile(zip_io, "r")
+
+    def read(self) -> Iterator[x509.Certificate]:
+        for file_info in self._zip_io.infolist():
+            if not file_info.filename.endswith(".pem"):
+                logging.warning("Skipping non-PEM file in ZIP: %s", file_info.filename)
+
+                continue
+
+            with self._zip_io.open(file_info) as pem_file:
+                try:
+                    yield x509.load_pem_x509_certificate(pem_file.read())
+                except ValueError as e:
+                    logging.error(
+                        "Failed to parse PEM in ZIP file %s: %s", file_info.filename, e
+                    )
+                    continue
+
+        self._zip_io.close()
+
+
+_FILE_EXTENSION_TO_READER_CLS = {
+    ".csv": CsvFileReader,
+    ".pem": PemFileReader,
+    ".zip": ZipFileReader,
+}
+
+
+def get_certificate_reader(file_io: io.FileIO) -> Optional[CertificateReader]:
+    _, ext = os.path.splitext(file_io.name)
+
+    reader = _FILE_EXTENSION_TO_READER_CLS.get(ext)
+    if reader is None:
+        logging.error("Unsupported file extension: %s", ext)
+    else:
+        reader = reader(file_io)
+
+    return reader
