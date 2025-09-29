@@ -17,6 +17,7 @@ class Statistics:
         self.duplicate_cert_count = 0
         self.total_cert_count = 0
         self.cert_count_by_revocation_reason_code = collections.defaultdict(int)
+        self.error_count = 0
 
     def __init__(self):
         self._initialize()
@@ -25,19 +26,30 @@ class Statistics:
         self._initialize()
 
     def output(self) -> None:
-        logger.info(f"Delayed valid cert count: {self.delayed_valid_cert_count}")
-        logger.info(f"Delayed revoked cert count: {self.delayed_revoked_cert_count}")
-        logger.info(f"Timely revoked cert count: {self.timely_revoked_cert_count}")
-        logger.info(f"Expired cert count: {self.expired_cert_count}")
-        logger.info(f"Valid cert count: {self.valid_cert_count}")
-        logger.info(f"Final cert without precert: {self.final_without_precert}")
-        logger.info(f"Precert without final cert: {self.precert_without_final}")
-        logger.info(f"Unknown cert type: {self.unknown_cert_type}")
-        logger.info(f"Duplicate cert count: {self.duplicate_cert_count}")
-        logger.info(f"Total cert count: {self.total_cert_count}")
         logger.info(
-            f"Cert count by revocation reason code: {self.cert_count_by_revocation_reason_code}"
+            f"Delayed revocation valid certificate count: {self.delayed_valid_cert_count}"
         )
+        logger.info(
+            f"Delayed revocation revoked certificate count: {self.delayed_revoked_cert_count}"
+        )
+        logger.info(
+            f"Timely revoked certificate count: {self.timely_revoked_cert_count}"
+        )
+        logger.info(f"Expired certificate count: {self.expired_cert_count}")
+        logger.info(f"Valid certificate count: {self.valid_cert_count}")
+        logger.info(
+            f"Final certificate without corresponding precertificate count: {self.final_without_precert}"
+        )
+        logger.info(
+            f"Precertificate without corresponding final certificate count: {self.precert_without_final}"
+        )
+        logger.info(f"Unknown certificate count: {self.unknown_cert_type}")
+        logger.info(f"Duplicate certificate count: {self.duplicate_cert_count}")
+        logger.info(f"Total certificate count: {self.total_cert_count}")
+        logger.info(
+            f"Certificate count by revocation reason code: {self.cert_count_by_revocation_reason_code}"
+        )
+        logger.info("Error count: {self.error_count}")
 
 
 INSTANCE = Statistics()

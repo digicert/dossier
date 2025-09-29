@@ -127,6 +127,8 @@ class RevocationManager:
 
         issuer_entry = self._ccadb_client.find_issuer_entry(cert)
         if issuer_entry is None:
+            statistics.INSTANCE.error_count += 1
+
             logging.error(
                 "Could not find issuer %s for %s",
                 cert.issuer.rfc4514_string(),

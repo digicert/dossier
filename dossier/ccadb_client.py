@@ -13,6 +13,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.x509 import Certificate
 
+from dossier import statistics
+
 logger = logging.getLogger(__name__)
 
 _ALL_ROOTS_INTERMEDIATES_V4_URI = (
@@ -86,6 +88,8 @@ class CcadbClient:
                     try:
                         cert = x509.load_pem_x509_certificate(pem.encode())
                     except ValueError:
+                        statistics.INSTANCE.error_count += 1
+
                         logger.exception(
                             f"Failed to parse cert in CSV row #%d", idx + 1
                         )
@@ -95,6 +99,8 @@ class CcadbClient:
                         cert.fingerprint(hashes.SHA256())
                     )
                     if ccadb_entry is None:
+                        statistics.INSTANCE.error_count += 1
+
                         logger.error(
                             f"No CCADB entry found for cert {cert.fingerprint(hashes.SHA256())}"
                         )
