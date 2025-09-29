@@ -8,7 +8,7 @@ from dateutil import parser as datetime_parser
 
 from dossier import revocation, ccadb_client, processor, report
 
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,12 @@ def main():
         default=sys.stderr,
     )
     parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level (default: INFO)",
+    )
+    parser.add_argument(
         "incident_discovery_datetime",
         type=datetime_parser.isoparse,
         help="Date and time when the incident was discovered in ISO 8601 format (e.g. 2025-07-29T15:00:00Z)",
@@ -54,6 +60,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Set logging level based on user argument
+    logging.getLogger().setLevel(getattr(logging, args.log_level))
 
     revocation_window = revocation.RevocationWindow.from_string(args.revocation_window)
 
