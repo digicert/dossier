@@ -147,6 +147,8 @@ class Processor:
 
                 if _is_precert(cert):
                     if entry.precert_sha256_hashes:
+                        statistics.INSTANCE.error_count += 1
+
                         logger.error(
                             "Multiple pre-certificates with serial number %d and issuer %s found",
                             cert.serial_number,
@@ -156,6 +158,8 @@ class Processor:
                     entry.precert_sha256_hashes.append(fingerprint)
                 else:
                     if entry.final_cert_sha256_hashes:
+                        statistics.INSTANCE.error_count += 1
+
                         logger.error(
                             "Multiple final certificates with serial number %d and issuer %s found",
                             cert.serial_number,

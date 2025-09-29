@@ -8,6 +8,8 @@ from typing import Iterator
 
 from cryptography import x509
 
+from dossier import statistics
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +22,8 @@ def read_csv(csv_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
         for idx, row in enumerate(csv_reader):
             pem = row.get("pem") or row.get("PEM")
             if pem is None:
+                statistics.INSTANCE.error_count += 1
+
                 msg = f'No "pem" or "PEM" column found in CSV row #{idx + 1}'
 
                 logging.error(msg)
@@ -28,6 +32,8 @@ def read_csv(csv_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
             try:
                 yield x509.load_pem_x509_certificate(pem.encode())
             except ValueError as e:
+                statistics.INSTANCE.error_count += 1
+
                 logging.error("Failed to parse PEM in CSV row #%d: %s", idx + 1, e)
 
                 continue
@@ -52,6 +58,8 @@ def read_pem_and_der(
 
             yield x509.load_pem_x509_certificate(content)
     except ValueError as e:
+        statistics.INSTANCE.error_count += 1
+
         logging.error("Failed to parse %s as %s: %s", filename, file_format, e)
 
 
@@ -84,6 +92,8 @@ def get_certificate_reader(filename: str):
 
     reader = _FILE_EXTENSION_TO_READER_FUNC.get(ext)
     if reader is None:
+        statistics.INSTANCE.error_count += 1
+
         logging.error("Unsupported file extension: %s", ext)
 
     return reader
