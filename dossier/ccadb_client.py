@@ -2,11 +2,9 @@ import base64
 import collections
 import csv
 import datetime
-import io
 import json
 import logging
 import typing
-from datetime import tzinfo
 from typing import List
 
 import httpx

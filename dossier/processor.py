@@ -1,7 +1,6 @@
 import enum
 import io
 import logging
-from turtledemo.penrose import start
 from typing import List, Optional
 
 import tqdm
@@ -91,12 +90,12 @@ class Processor:
         for input_file in input_files:
             logger.info("Processing %s", input_file.name)
 
-            reader = cert_loader.get_certificate_reader(input_file)
+            reader = cert_loader.get_certificate_reader(input_file.name)
             if reader is None:
                 continue
 
             for cert in tqdm.tqdm(
-                reader.read(),
+                reader(input_file, input_file.name),
                 desc=input_file.name,
                 disable=not self._show_progress,
                 initial=statistics.INSTANCE.total_cert_count,
