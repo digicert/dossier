@@ -1,40 +1,71 @@
+import datetime
+
 import pytest
-import subprocess
-from pathlib import Path
-
 from cryptography import x509
+from dossier import statistics
 
-from dossier import revocation
-from dossier.revocation import RevocationWindow
+from dossier.revocation import RevocationClassifier, RevocationWindow
+from tests import pki_maker
 
-TEST_CERTS_DIR = Path(__file__).parent / "test_certs"
-INCIDENT_DATE = "2025-07-15T03:17:13Z"
+_CA = pki_maker.generate_inter_a_key_1_ca(pki_maker.generate_root())
 
 
-# @pytest.mark.parametrize(
-#     "cert_file, expected_status",
-#     [
-#         ("expired_cert.pem", "N/A"),
-#         ("revoked_cert.pem", "Yes"),
-#         ("revoked_slow_cert.pem", "Delayed"),
-#         ("valid_cert.pem", "Planned"),
-#     ],
-# )
-# def test_cert_status(cert_file, expected_status):
-#     with open(TEST_CERTS_DIR / cert_file, "rb") as f:
-#         pem = f.read()
-#
-#     cert = x509.load_pem_x509_certificate(pem)
-#
-#     classifier = revocation.RevocationClassifier(
-#         RevocationWindow.TWENTY_FOUR_HOURS,
-#         INCIDENT_DATE,
-#     )
-#
-#     result = subprocess.run(
-#         ["dossier", "--incident", INCIDENT_DATE, str(cert_path)],
-#         capture_output=True,
-#         text=True,
-#     )
-#     output = result.stdout + result.stderr
-#     assert expected_status in output, f"No revocation status found in output:\n{output}"
+def _generate_crl_entry(
+    serial_number: int, revocation_date: datetime.datetime
+) -> x509.RevokedCertificate:
+    crl = pki_maker.generate_crl(
+        _CA, pki_maker.RFC9500_INTER_A_KEY_1, [(serial_number, revocation_date, None)]
+    )
+
+    return crl.get_revoked_certificate_by_serial_number(serial_number)
+
+
+@pytest.fixture(autouse=True)
+def reset_statistics():
+    statistics.INSTANCE.reset()
+    yield
+    statistics.INSTANCE.reset()
+
+
+def test_delayed():
+    classifier = RevocationClassifier(
+        RevocationWindow.SEVEN_DAYS,
+        datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2024, 1, 10, tzinfo=datetime.timezone.utc),
+    )
+
+    revoked_cert = _generate_crl_entry(
+        1, datetime.datetime(2024, 1, 9, tzinfo=datetime.timezone.utc)
+    )
+
+    assert classifier.classify_revocation(revoked_cert) == "Delayed"
+    assert statistics.INSTANCE.delayed_revoked_cert_count == 1
+    assert statistics.INSTANCE.valid_cert_count == 0
+
+
+def test_planned_delayed():
+    classifier = RevocationClassifier(
+        RevocationWindow.SEVEN_DAYS,
+        datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2024, 1, 10, tzinfo=datetime.timezone.utc),
+    )
+
+    assert classifier.classify_revocation(None) == "Planned"
+    assert statistics.INSTANCE.delayed_valid_cert_count == 1
+    assert statistics.INSTANCE.valid_cert_count == 1
+
+
+def test_revoked_timely():
+    classifier = RevocationClassifier(
+        RevocationWindow.SEVEN_DAYS,
+        datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2024, 1, 5, tzinfo=datetime.timezone.utc),
+    )
+
+    revoked_cert = _generate_crl_entry(
+        1, datetime.datetime(2024, 1, 3, tzinfo=datetime.timezone.utc)
+    )
+
+    assert classifier.classify_revocation(revoked_cert) == "Yes"
+    assert statistics.INSTANCE.timely_revoked_cert_count == 1
+    assert statistics.INSTANCE.valid_cert_count == 0
