@@ -66,14 +66,14 @@ class RevocationClassifier:
 
             return "Planned"
         else:
-            if crl_entry.revocation_date_utc < self._revocation_deadline_datetime:
-                statistics.INSTANCE.timely_revoked_cert_count += 1
-
-                return "Yes"
-            else:
+            if crl_entry.revocation_date_utc > self._revocation_deadline_datetime:
                 statistics.INSTANCE.delayed_revoked_cert_count += 1
 
                 return "Delayed"
+            else:
+                statistics.INSTANCE.timely_revoked_cert_count += 1
+
+                return "Yes"
 
 
 class RevocationInfo(typing.NamedTuple):

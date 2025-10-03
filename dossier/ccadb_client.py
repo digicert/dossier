@@ -28,7 +28,6 @@ _PEM_DOWNLOAD_START_YEAR = 1996
 
 class CcadbEntry(typing.NamedTuple):
     cert: x509.Certificate
-    key_identifier: bytes
     full_crl_uri: str
     partitioned_crl_uris: List[str]
 
@@ -123,10 +122,8 @@ class CcadbClient:
                         else None
                     )
 
-                    skid = base64.b64decode(ccadb_entry["Subject Key Identifier"])
-
                     issuers_by_name[cert.subject.public_bytes()].append(
-                        CcadbEntry(cert, skid, full_crl_uri, partitioned_crl_uris)
+                        CcadbEntry(cert, full_crl_uri, partitioned_crl_uris)
                     )
 
                     loaded_cert_count += 1

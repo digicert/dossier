@@ -69,3 +69,35 @@ def test_revoked_timely():
     assert classifier.classify_revocation(revoked_cert) == "Yes"
     assert statistics.INSTANCE.timely_revoked_cert_count == 1
     assert statistics.INSTANCE.valid_cert_count == 0
+
+
+def test_revoked_delayed_5_days_one_second():
+    classifier = RevocationClassifier(
+        RevocationWindow.FIVE_DAYS,
+        datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2024, 1, 6, second=1, tzinfo=datetime.timezone.utc),
+    )
+
+    revoked_cert = _generate_crl_entry(
+        1, datetime.datetime(2024, 1, 6, second=1, tzinfo=datetime.timezone.utc)
+    )
+
+    assert classifier.classify_revocation(revoked_cert) == "Delayed"
+    assert statistics.INSTANCE.delayed_revoked_cert_count == 1
+    assert statistics.INSTANCE.valid_cert_count == 0
+
+
+def test_revoked_timely_5_days():
+    classifier = RevocationClassifier(
+        RevocationWindow.FIVE_DAYS,
+        datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2024, 1, 6, tzinfo=datetime.timezone.utc),
+    )
+
+    revoked_cert = _generate_crl_entry(
+        1, datetime.datetime(2024, 1, 6, tzinfo=datetime.timezone.utc)
+    )
+
+    assert classifier.classify_revocation(revoked_cert) == "Yes"
+    assert statistics.INSTANCE.timely_revoked_cert_count == 1
+    assert statistics.INSTANCE.valid_cert_count == 0

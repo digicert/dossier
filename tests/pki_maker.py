@@ -196,11 +196,11 @@ def _generate_ica(issuer_cert, subject_key, subject_name):
 
 
 def generate_inter_a_key_1_ca(root_cert):
-    return _generate_ica(root_cert, RFC9500_INTER_A_KEY_1, "Example Inter A Key 1 CA")
+    return _generate_ica(root_cert, RFC9500_INTER_A_KEY_1, "Example Inter A CA")
 
 
 def generate_inter_a_key_2_ca(root_cert):
-    return _generate_ica(root_cert, RFC9500_INTER_A_KEY_2, "Example Inter A Key 2 CA")
+    return _generate_ica(root_cert, RFC9500_INTER_A_KEY_2, "Example Inter A CA")
 
 
 def generate_inter_b_ca(root_cert):
