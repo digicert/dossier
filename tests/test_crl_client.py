@@ -8,7 +8,7 @@ from dossier.crl_client import CrlClient
 from tests import pki_maker
 from tests.pki_maker import generate_crl
 
-_NOW = datetime.datetime.now(tz=datetime.timezone.utc)
+_NOW = datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)
 
 _PARTITION_1_URI = "http://ca.example/part-1.crl"
 _PARTITION_2_URI = "http://ca.example/part-2.crl"

@@ -101,7 +101,7 @@ def test_csv():
     temp_f = None
 
     try:
-        temp_f = tempfile.NamedTemporaryFile("w+", suffix=".csv", delete_on_close=False)
+        temp_f = tempfile.NamedTemporaryFile("w+", suffix=".csv", delete=False)
         writer = csv.DictWriter(temp_f, fieldnames=["pem"], lineterminator="\n")
 
         writer.writeheader()

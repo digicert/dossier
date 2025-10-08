@@ -2,10 +2,12 @@ import datetime
 import io
 
 from dossier import report, revocation
+from dossier.report import CertificateType
 
 
 def test_link_report_basic():
     entry = report.ReportEntry(
+        cert_type=CertificateType.TLS_EE,
         serial_number=123456,
         subject="CN=Test",
         issuer="CN=Issuer",
@@ -29,6 +31,7 @@ def test_link_report_basic():
 
 def test_full_report_basic():
     entry = report.ReportEntry(
+        cert_type=CertificateType.TLS_EE,
         serial_number=123456,
         subject="CN=Test",
         issuer="CN=Issuer",
