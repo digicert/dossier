@@ -8,6 +8,7 @@ import typing
 from typing import List
 
 import httpx
+import tqdm
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
@@ -38,10 +39,12 @@ class CcadbClient:
         http_client: httpx.Client,
         current_time: datetime.datetime,
         start_year: int = _PEM_DOWNLOAD_START_YEAR,
+        show_progress: bool = True,
     ):
         self._http_client = http_client
         self._start_year = start_year
         self._current_date_str = current_time.strftime("%Y.%m.%d")
+        self._show_progress = show_progress
 
         self._ccadb_records_by_fingerprint = self._download_all_records()
 
@@ -72,7 +75,11 @@ class CcadbClient:
 
         current_year = datetime.datetime.now(tz=datetime.timezone.utc).year
 
-        for year in range(self._start_year, current_year + 1):
+        for year in tqdm.tqdm(
+            list(range(self._start_year, current_year + 1)),
+            desc="Fetching CA certificates from CCADB",
+            disable=not self._show_progress,
+        ):
             url = _CCADB_TEMPLATE.format(year=year)
             logger.info("Fetching CA data from %s", url)
 
@@ -86,11 +93,9 @@ class CcadbClient:
 
                     try:
                         cert = x509.load_pem_x509_certificate(pem.encode())
-                    except ValueError:
-                        statistics.INSTANCE.error_count += 1
-
-                        logger.exception(
-                            f"Failed to parse cert in CSV row #%d", idx + 1
+                    except ValueError as e:
+                        logger.info(
+                            f"Failed to parse cert in CSV row #%d: %s", idx + 1, e
                         )
                         continue
 

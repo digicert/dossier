@@ -3,7 +3,7 @@ import datetime
 from cryptography import x509
 from cryptography.hazmat._oid import NameOID
 from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, ec
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509 import SubjectAlternativeName, ExtendedKeyUsage
 
 RFC9500_ROOT_KEY = serialization.load_pem_private_key(
@@ -96,6 +96,8 @@ gsZPVi/K3vxKTCj200LPPvYW/ILTO3KFySHyvzb92A==
     password=None,
 )
 
+_NOT_BEFORE = datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)
+
 
 def generate_root():
     subject = issuer = x509.Name(
@@ -112,11 +114,8 @@ def generate_root():
         .issuer_name(issuer)
         .public_key(RFC9500_ROOT_KEY.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(tz=datetime.timezone.utc))
-        .not_valid_after(
-            datetime.datetime.now(tz=datetime.timezone.utc)
-            + datetime.timedelta(days=3650)
-        )
+        .not_valid_before(_NOT_BEFORE)
+        .not_valid_after(_NOT_BEFORE + datetime.timedelta(days=3650))
         .add_extension(
             x509.BasicConstraints(ca=True, path_length=2),
             critical=True,
@@ -158,11 +157,8 @@ def _generate_ica(issuer_cert, subject_key, subject_name):
         .issuer_name(issuer_cert.subject)
         .public_key(subject_key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(tz=datetime.timezone.utc))
-        .not_valid_after(
-            datetime.datetime.now(tz=datetime.timezone.utc)
-            + datetime.timedelta(days=3650)
-        )
+        .not_valid_before(_NOT_BEFORE)
+        .not_valid_after(_NOT_BEFORE + datetime.timedelta(days=3650))
         .add_extension(
             x509.BasicConstraints(ca=True, path_length=1),
             critical=True,
@@ -207,38 +203,47 @@ def generate_inter_b_ca(root_cert):
     return _generate_ica(root_cert, RFC9500_INTER_B_KEY, "Example Inter B CA")
 
 
-def _generate_ee(issuer_cert, issuer_key, san_value):
+def _generate_ee(
+    issuer_cert, issuer_key, san_value, serial_number=None, is_precert=False
+):
     temp_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
     gn = x509.RFC822Name(san_value) if "@" in san_value else x509.DNSName(san_value)
     eku = x509.OID_EMAIL_PROTECTION if "@" in san_value else x509.OID_SERVER_AUTH
 
-    return (
+    builder = (
         x509.CertificateBuilder()
         .subject_name(x509.Name([]))
         .issuer_name(issuer_cert.subject)
         .public_key(temp_key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(tz=datetime.timezone.utc))
-        .not_valid_after(
-            datetime.datetime.now(tz=datetime.timezone.utc)
-            + datetime.timedelta(days=100)
-        )
+        .serial_number(serial_number or x509.random_serial_number())
+        .not_valid_before(_NOT_BEFORE)
+        .not_valid_after(_NOT_BEFORE + datetime.timedelta(days=100))
         .add_extension(SubjectAlternativeName([gn]), critical=True)
         .add_extension(ExtendedKeyUsage([eku]), critical=False)
-        .sign(issuer_key, hashes.SHA256())
     )
+
+    if is_precert:
+        builder = builder.add_extension(x509.PrecertPoison(), critical=True)
+
+    return builder.sign(issuer_key, hashes.SHA256())
 
 
 dnsname_counter = 0
 
 
-def generate_tls_ee(issuer_cert, issuer_key):
+def generate_tls_ee(issuer_cert, issuer_key, serial_number=None, is_precert=False):
     global dnsname_counter
 
     dnsname_counter += 1
 
-    return _generate_ee(issuer_cert, issuer_key, f"test{dnsname_counter}.example")
+    return _generate_ee(
+        issuer_cert,
+        issuer_key,
+        f"test{dnsname_counter}.example",
+        serial_number,
+        is_precert,
+    )
 
 
 rfc822_name_counter = 0
@@ -254,14 +259,16 @@ def generate_smime_ee(issuer_cert, issuer_key):
     )
 
 
-def generate_crl(issuer_cert, issuer_key, revoked_certs, idp_uri=None):
+def generate_crl(
+    issuer_cert, issuer_key, revoked_certs, idp_uri=None, this_update=None
+):
+    this_update = this_update or _NOT_BEFORE
+
     builder = (
         x509.CertificateRevocationListBuilder()
         .issuer_name(issuer_cert.subject)
-        .last_update(datetime.datetime.now(tz=datetime.timezone.utc))
-        .next_update(
-            datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=7)
-        )
+        .last_update(this_update)
+        .next_update(this_update + datetime.timedelta(days=7))
     )
 
     for serial_number, revocation_date, reason in revoked_certs:

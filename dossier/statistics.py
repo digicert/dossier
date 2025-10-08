@@ -49,7 +49,7 @@ class Statistics:
         logger.info(
             f"Certificate count by revocation reason code: {self.cert_count_by_revocation_reason_code}"
         )
-        logger.info("Error count: {self.error_count}")
+        logger.info(f"Error count: {self.error_count}")
 
 
 INSTANCE = Statistics()

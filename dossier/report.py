@@ -1,12 +1,20 @@
 import csv
 import datetime
+import enum
 import io
 from typing import List, Optional, NamedTuple, Sequence
 
 from dossier import revocation
 
 
+class CertificateType(enum.Enum):
+    TLS_EE = enum.auto()
+    SMIME_EE = enum.auto()
+    CA = enum.auto()
+
+
 class ReportEntry(NamedTuple):
+    cert_type: Optional[CertificateType]
     serial_number: int
     subject: str
     issuer: str
