@@ -47,7 +47,7 @@ class Statistics:
         logger.warning(f"Duplicate certificate count: {self.duplicate_cert_count}")
         logger.warning(f"Total certificate count: {self.total_cert_count}")
         revocation_counts_str = ", ".join(
-            ("{k}: {v}" for k, v in self.cert_count_by_revocation_reason_code.items())
+            (f"{k}: {v}" for k, v in self.cert_count_by_revocation_reason_code.items())
         )
 
         logger.warning(
