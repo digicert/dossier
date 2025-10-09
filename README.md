@@ -27,68 +27,65 @@ the instructions on the [pipx homepage](https://pypa.github.io/pipx/) to install
 
 Once installed, the bundled command line application will be available on your machine.
 
-
 ## Usage
 
-After installation, use the `dossier` command:
+### Required Arguments
 
-### CSV Output (default)
-```bash
-# CSV file input
-dossier sample_data.csv > sample_data_output.csv
+Dossier requires several arguments to be supplied:
 
-# Directory input  
-dossier tests/pems_dir > directory_output.csv
+1. `incident_discovery_datetime`: The ISO 8601 timestamp when the incident was discovered. This is used to determine if a certificate was revoked in a timely manner. Documentation for the expected format can be found [here](https://dateutil.readthedocs.io/en/stable/parser.html#dateutil.parser.isoparse). Example: `20250729T150000Z`
+2. `revocation_window`: The maximum allowed time between the discovery of an incident and the certificate revocation. Allowed values are `24H`, `5D`, or `7D`.
+3. `input_files`: One or more paths to files containing certificates. These paths can be for CSV files, PEM and DER files, or a ZIP file containing these types of files.
 
-# ZIP file input
-dossier tests/pems_zipped.zip > zip_output.csv
-```
+There are a few caveats to note regarding the `input_files` argument:
 
+1. File extensions are used to determine the file type. Supported extensions are `.csv`, `.pem`, `.cer`, `.crt`, `.der`, and `.zip`. This behavior may change in the future to instead use magic numbers to determine the file type.
+2. CSV files must contain a column named `PEM` or `pem` that contains PEM-encoded certificates. Other columns in the CSV file are ignored.
+3. Concatenated PEM files are (currently) not supported.
 
+### Optional Arguments
 
-## Input Types
+The following optional arguments can be supplied:
 
-The tool supports multiple input formats:
+1. `--full-report-threshold`: The maximum number of certificates to process before switching to generating a crt.sh link list instead of a full report. Default is `10000`.
+2. `--show-progress`: If specified, a progress bar will be displayed during processing.
+3. `--output-file`: The path to the output file. If not specified, output will be printed to standard output.
+4. `--log-file`: The path to a log file. If not specified, logs will be printed to standard error.
+5. `--log-level`: The logging level. Allowed values are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`. Default is `WARNING`.
 
-1. **CSV files** - Files containing PEM certificates in a `pem` column
-2. **Directories** - Folders containing multiple `.pem` files  
-3. **ZIP files** - Compressed archives containing `.pem` files
-4. **Single PEM files** - Individual certificate files
+### Example Invocations
 
-## Output Formats
+1. Generate a report for an incident discovered on 2025-07-29 at 15:00:00 UTC with a 24-hour revocation window with certificates in `cert1.pem`, `cert2.cer`, and `certs.zip`, printing the report to standard output with a progress bar:
 
-- **CSV**: Easy to import into spreadsheets or paste into reports
-- **JSON**: Structured data for integration with other tools
+    ```shell
+    dossier 20250729T150000Z 24H cert1.pem cert2.cer certs.zip --show-progress
+    ```
 
-# Link Generation
-If more than 10,000 certificates are processed:
-- A separate file named crtsh_links.txt is created
-- It contains a list of crt.sh URLs for each certificate
+2. Generate a report for an incident discovered on 2025-07-29 at 15:00:00 UTC with a 5-day revocation window with certificates in `certs.csv`, writing the report to `report.csv` and logging debug information to `dossier.log`:
 
-Example output:
-```bash
-https://crt.sh/?sha256=abcd1234...
-https://crt.sh/?sha256=efgh5678...
-```
+    ```shell
+    dossier 20250729T150000Z 5D certs.csv --output-file report.csv --log-file dossier.log --log-level DEBUG
+    ```
 
-# Incident Discovery
-Optionally provide an incident discovery datetime using the `--incident` parameter. This allows the script to adjust the **Revocation Status** field based on when the incident was discovered relative to the certificate's revocation time.
+## Processing
 
-### Behavior
+Once the required and optional arguments are supplied, Dossier will process the input files and generate a report. The processing steps are as follows:
 
-- If `--incident` is provided with a valid ISO 8601 datetime (e.g., `"2025-07-29T15:00:00Z"`):
-  - If the incident discovery time is **more than 24 hours after** the certificate revocation time, the **Revocation Status** will be set to `"Delayed"`.
-  - If the incident discovery time is **within 24 hours** of the revocation time, the **Revocation Status** will be `"Yes"`.
-  - If the certificate is expired, the status will be `"N/A"` regardless of incident time.
+1. Fetch [V4 All Certificate Information (root and intermediate) in CCADB (CSV)](https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatv4).
+2. Fetch `AllCertificatePEMsCSVFormat` for each year from 1996 (the earliest year that a valid certificate exists) up to and including the current year.
+3. Read in the supplied input files and extract certificates.
+4. For each certificate, fetch CRL-based revocation status by determining the issuer of the certificate and downloading the relevant CRL(s) using the CRL URI(s) disclosed in CCADB.
+5. Using the incident discovery date/time, revocation window, and revocation status, determine the revocation status (expired, timely revoked, delayed revocation, valid but planned to be revoked).
+6. Output statistics as a series of WARNING-level log messages, which provide comprehensive information about the certificates processed.
+7. Generate a report in CSV format or a crt.sh link list, depending on the number of certificates processed and the value of the `--full-report-threshold` option.
 
-- `--revocation-window` [Optional]
-  - Specifies the maximum allowed time between the discovery of an incident and the certificate revocation, when used with the `--incident argument`.
-  - Can be 24h, 5d, or 7d 
-  - Default is 24h
-  - All delay comparisons use that dynamic window
+## Some Notes on the Full Report Format
 
----
+The CCADB Incident Reporting Guidelines provide a rigorous format for the full report. However, some design decisions were made in the implementation of Dossier that may not be immediately obvious. These decisions are documented here for clarity:
 
+1. All end-entity S/MIME certificates (those with an Extended Key Usage of `emailProtection`) have their `Subject` listed as `REDACTED`, as these certificates (almost) always contain personal information such as email addresses or names.
+2. A space is used to delimit SHA-256 hashes and DNS names.
+3. The string representation of subject and issuer DNs is generated using the `rfc4514_string()` method from the `cryptography` package. The use of short names or the "raw" OID format may change depending on the version of the `cryptography` package installed.
 
 ## Bugs?
 

@@ -26,34 +26,34 @@ class Statistics:
         self._initialize()
 
     def output(self) -> None:
-        logger.info(
+        logger.warning(
             f"Delayed revocation valid certificate count: {self.delayed_valid_cert_count}"
         )
-        logger.info(
+        logger.warning(
             f"Delayed revocation revoked certificate count: {self.delayed_revoked_cert_count}"
         )
-        logger.info(
+        logger.warning(
             f"Timely revoked certificate count: {self.timely_revoked_cert_count}"
         )
-        logger.info(f"Expired certificate count: {self.expired_cert_count}")
-        logger.info(f"Valid certificate count: {self.valid_cert_count}")
-        logger.info(
+        logger.warning(f"Expired certificate count: {self.expired_cert_count}")
+        logger.warning(f"Valid certificate count: {self.valid_cert_count}")
+        logger.warning(
             f"Final certificate without corresponding precertificate count: {self.final_without_precert}"
         )
-        logger.info(
+        logger.warning(
             f"Precertificate without corresponding final certificate count: {self.precert_without_final}"
         )
-        logger.info(f"Unknown certificate count: {self.unknown_cert_type}")
-        logger.info(f"Duplicate certificate count: {self.duplicate_cert_count}")
-        logger.info(f"Total certificate count: {self.total_cert_count}")
+        logger.warning(f"Unknown certificate count: {self.unknown_cert_type}")
+        logger.warning(f"Duplicate certificate count: {self.duplicate_cert_count}")
+        logger.warning(f"Total certificate count: {self.total_cert_count}")
         revocation_counts_str = ", ".join(
             ("{k}: {v}" for k, v in self.cert_count_by_revocation_reason_code.items())
         )
 
-        logger.info(
+        logger.warning(
             f"Certificate count by revocation reason code: {revocation_counts_str}"
         )
-        logger.info(f"Error count: {self.error_count}")
+        logger.warning(f"Error count: {self.error_count}")
 
 
 INSTANCE = Statistics()
