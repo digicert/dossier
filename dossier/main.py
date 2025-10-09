@@ -13,7 +13,10 @@ _CCADB_IR_GUIDELINES_CONFORMANCE_LEVEL = "3.1"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Generate certificate reports conformant with CCADB Incident Reporting Guidelines v"
+        + _CCADB_IR_GUIDELINES_CONFORMANCE_LEVEL
+    )
     parser.add_argument(
         "--full-report-threshold",
         type=int,
