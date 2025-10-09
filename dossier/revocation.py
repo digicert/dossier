@@ -22,24 +22,24 @@ class RevocationWindow(enum.Enum):
 
     @classmethod
     def from_string(cls, s):
-        s_lower = s.lower()
+        s = s.upper()
 
-        if s_lower == "24h":
+        if s == "24H":
             return cls.TWENTY_FOUR_HOURS
-        elif s_lower == "5d":
+        elif s == "5D":
             return cls.FIVE_DAYS
-        elif s_lower == "7d":
+        elif s == "7D":
             return cls.SEVEN_DAYS
         else:
             raise ValueError(f"Invalid value: {s}")
 
     def __str__(self):
         if self == RevocationWindow.TWENTY_FOUR_HOURS:
-            return "24h"
+            return "24H"
         elif self == RevocationWindow.FIVE_DAYS:
-            return "5d"
+            return "5D"
         elif self == RevocationWindow.SEVEN_DAYS:
-            return "7d"
+            return "7D"
         else:
             # should never happen
             raise ValueError(f"Invalid value: {self}")
@@ -66,14 +66,14 @@ class RevocationClassifier:
 
             return "Planned"
         else:
-            if crl_entry.revocation_date_utc < self._revocation_deadline_datetime:
-                statistics.INSTANCE.timely_revoked_cert_count += 1
-
-                return "Yes"
-            else:
+            if crl_entry.revocation_date_utc > self._revocation_deadline_datetime:
                 statistics.INSTANCE.delayed_revoked_cert_count += 1
 
                 return "Delayed"
+            else:
+                statistics.INSTANCE.timely_revoked_cert_count += 1
+
+                return "Yes"
 
 
 class RevocationInfo(typing.NamedTuple):
@@ -88,14 +88,12 @@ class RevocationManager:
         http_client: httpx.Client,
         ccadb_client: CcadbClient,
         classifier: RevocationClassifier,
-        current_time: Optional[datetime.datetime] = None,
+        current_time: datetime.datetime,
     ):
         self._http_client = http_client
         self._ccadb_client = ccadb_client
         self._classifier = classifier
-        self._current_time = current_time or datetime.datetime.now(
-            tz=datetime.timezone.utc
-        )
+        self._current_time = current_time
 
     @functools.lru_cache()
     def _get_crl_client(self, issuer: CcadbEntry):

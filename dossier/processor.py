@@ -1,4 +1,3 @@
-import enum
 import io
 import logging
 from typing import List, Optional
@@ -9,16 +8,10 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.x509 import oid
 
 from dossier import statistics, cert_loader
-from dossier.report import ReportEntry
+from dossier.report import ReportEntry, CertificateType
 from dossier.revocation import RevocationManager
 
 logger = logging.getLogger(__name__)
-
-
-class CertificateType(enum.Enum):
-    TLS_EE = enum.auto()
-    SMIME_EE = enum.auto()
-    CA = enum.auto()
 
 
 def _get_dnsnames(cert):
@@ -80,7 +73,7 @@ class Processor:
         self._revocation_manager = revocation_manager
         self._show_progress = show_progress
 
-    def process_files(self, input_files: List[io.FileIO]):
+    def process_files(self, input_files: List[io.FileIO]) -> List[ReportEntry]:
         entries_by_issuer_and_serial_number = {}
 
         fingerprints_seen = set()
@@ -132,6 +125,7 @@ class Processor:
                     revocation_info = self._revocation_manager.get_revocation_info(cert)
 
                     entry = ReportEntry(
+                        cert_type,
                         cert.serial_number,
                         subject,
                         cert.issuer.rfc4514_string(),
@@ -171,12 +165,16 @@ class Processor:
         statistics.INSTANCE.final_without_precert = sum(
             1
             for entry in entries_by_issuer_and_serial_number.values()
-            if entry.final_cert_sha256_hashes and not entry.precert_sha256_hashes
+            if entry.cert_type == CertificateType.TLS_EE
+            and entry.final_cert_sha256_hashes
+            and not entry.precert_sha256_hashes
         )
         statistics.INSTANCE.precert_without_final = sum(
             1
             for entry in entries_by_issuer_and_serial_number.values()
-            if entry.precert_sha256_hashes and not entry.final_cert_sha256_hashes
+            if entry.cert_type == CertificateType.TLS_EE
+            and entry.precert_sha256_hashes
+            and not entry.final_cert_sha256_hashes
         )
 
         statistics.INSTANCE.output()

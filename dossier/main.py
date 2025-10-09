@@ -6,20 +6,16 @@ import sys
 import httpx
 from dateutil import parser as datetime_parser
 
-from dossier import revocation, ccadb_client, processor, report
-
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-
-logger = logging.getLogger(__name__)
+from dossier import revocation, ccadb_client, processor, report, statistics
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--full-report-threshold",
         type=int,
         default=10000,
-        help="Certificate count threshold where the full report is generated (default: 10000)",
+        help="Certificate count threshold for generating the full report (default: 10000)",
     )
     parser.add_argument(
         "--show-progress", action="store_true", help="Show progress bars"
@@ -39,30 +35,32 @@ def main():
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
-        help="Set the logging level (default: INFO)",
+        default="WARNING",
+        type=str.upper,
+        help="Set the logging level (default: WARNING)",
     )
     parser.add_argument(
         "incident_discovery_datetime",
         type=datetime_parser.isoparse,
-        help="Date and time when the incident was discovered in ISO 8601 format (e.g. 2025-07-29T15:00:00Z)",
+        help="Date and time when the incident was discovered in ISO 8601 format (e.g. 20250729T150000Z)",
     )
     parser.add_argument(
         "revocation_window",
-        choices=["24h", "5d", "7d"],
-        help="Time allowed for revocation after incident discovery. Options: 24h, 5d, 7d.",
+        choices=["24H", "5D", "7D"],
+        type=str.upper,
+        help="Time allowed for revocation after incident discovery",
     )
     parser.add_argument(
         "input_files",
-        help="Paths to .pem files, .csv files, or .zip files containing .pem files",
+        help="Paths to PEM or DER certificate files, .csv files, or .zip files containing PEM or DER certificate files",
         nargs="+",
         type=argparse.FileType("rb"),
     )
 
     args = parser.parse_args()
 
-    # Set logging level based on user argument
-    logging.getLogger().setLevel(getattr(logging, args.log_level))
+    # Set the logging level and output stream based on user arguments
+    logging.basicConfig(stream=args.log_file, level=getattr(logging, args.log_level))
 
     revocation_window = revocation.RevocationWindow.from_string(args.revocation_window)
 
@@ -86,6 +84,8 @@ def main():
         report.write_link_report(entries, args.output_file)
     else:
         report.write_full_report(entries, args.output_file)
+
+    return int(statistics.INSTANCE.error_count > 0)
 
 
 if __name__ == "__main__":

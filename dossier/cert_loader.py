@@ -13,7 +13,7 @@ from dossier import statistics
 logger = logging.getLogger(__name__)
 
 
-def read_csv(csv_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
+def _read_csv(csv_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
     text_io = io.TextIOWrapper(csv_io, encoding="utf-8")
 
     csv_reader = csv.DictReader(text_io)
@@ -41,18 +41,17 @@ def read_csv(csv_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
         text_io.detach()
 
 
-def read_pem_and_der(
+def _read_pem_and_der(
     pem_and_der_io: typing.IO, filename: str
 ) -> Iterator[x509.Certificate]:
     content = pem_and_der_io.read()
 
     file_format = ""
     try:
-        if content.startswith(b"\30"):
+        if content.startswith(b"\x30"):
             file_format = "DER"
 
             yield x509.load_der_x509_certificate(content)
-
         else:
             file_format = "PEM"
 
@@ -63,7 +62,7 @@ def read_pem_and_der(
         logging.error("Failed to parse %s as %s: %s", filename, file_format, e)
 
 
-def read_zip(zip_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
+def _read_zip(zip_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
     with zipfile.ZipFile(zip_io, "r") as zip_file:
         for file_info in zip_file.infolist():
             filename = file_info.filename
@@ -78,12 +77,12 @@ def read_zip(zip_io: typing.IO, _: str) -> Iterator[x509.Certificate]:
 
 
 _FILE_EXTENSION_TO_READER_FUNC = {
-    ".csv": read_csv,
-    ".zip": read_zip,
-    ".pem": read_pem_and_der,
-    ".der": read_pem_and_der,
-    ".crt": read_pem_and_der,
-    ".cer": read_pem_and_der,
+    ".csv": _read_csv,
+    ".zip": _read_zip,
+    ".pem": _read_pem_and_der,
+    ".der": _read_pem_and_der,
+    ".crt": _read_pem_and_der,
+    ".cer": _read_pem_and_der,
 }
 
 
