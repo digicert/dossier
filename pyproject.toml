@@ -27,7 +27,7 @@ classifiers = [
 ]
 keywords = ["certificates", "x509", "smime", "ssl", "tls", "cryptography"]
 dependencies = [
-    "cryptography",
+    "cryptography>=42",
     "tqdm",
     "httpx",
     "python-dateutil",
