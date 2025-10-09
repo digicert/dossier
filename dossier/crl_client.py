@@ -37,7 +37,7 @@ class CrlClient:
         for uri in uris:
             try:
                 self.crls.append(self._download_and_validate_crl(uri, is_full))
-            except Exception as e:
+            except (ValueError, httpx.HTTPError) as e:
                 logger.exception(
                     "Failed to download and validate %s CRL from %s: %s",
                     "full" if is_full else "partitioned",

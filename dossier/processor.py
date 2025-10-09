@@ -19,7 +19,7 @@ def _get_dnsnames(cert):
         san_ext = cert.extensions.get_extension_for_oid(
             x509.OID_SUBJECT_ALTERNATIVE_NAME
         )
-        return ",".join(san_ext.value.get_values_for_type(x509.DNSName))
+        return " ".join(san_ext.value.get_values_for_type(x509.DNSName))
     except x509.ExtensionNotFound:
         return ""
 
@@ -93,8 +93,6 @@ class Processor:
                 disable=not self._show_progress,
                 initial=statistics.INSTANCE.total_cert_count,
             ):
-                statistics.INSTANCE.total_cert_count += 1
-
                 fingerprint = cert.fingerprint(hashes.SHA256())
 
                 if fingerprint in fingerprints_seen:
@@ -105,6 +103,8 @@ class Processor:
                     statistics.INSTANCE.duplicate_cert_count += 1
 
                     continue
+
+                statistics.INSTANCE.total_cert_count += 1
 
                 fingerprints_seen.add(fingerprint)
 

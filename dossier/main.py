@@ -9,6 +9,9 @@ from dateutil import parser as datetime_parser
 from dossier import revocation, ccadb_client, processor, report, statistics
 
 
+_CCADB_IR_GUIDELINES_CONFORMANCE_LEVEL = "3.1"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(

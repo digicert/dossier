@@ -46,8 +46,12 @@ class Statistics:
         logger.info(f"Unknown certificate count: {self.unknown_cert_type}")
         logger.info(f"Duplicate certificate count: {self.duplicate_cert_count}")
         logger.info(f"Total certificate count: {self.total_cert_count}")
+        revocation_counts_str = ", ".join(
+            ("{k}: {v}" for k, v in self.cert_count_by_revocation_reason_code.items())
+        )
+
         logger.info(
-            f"Certificate count by revocation reason code: {self.cert_count_by_revocation_reason_code}"
+            f"Certificate count by revocation reason code: {revocation_counts_str}"
         )
         logger.info(f"Error count: {self.error_count}")
 

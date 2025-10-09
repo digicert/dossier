@@ -13,19 +13,21 @@ authors = [
 description = "Certificate processing and OCSP validation tool"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Information Technology",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security :: Cryptography",
-    "Topic :: System :: Systems Administration",
 ]
 keywords = ["certificates", "x509", "smime", "ssl", "tls", "cryptography"]
 dependencies = [
     "cryptography",
-    "requests",
     "tqdm",
     "httpx",
     "python-dateutil",
@@ -34,10 +36,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-cov",
     "black",
-    "flake8",
-    "mypy",
 ]
 
 [project.urls]
@@ -51,16 +50,3 @@ dossier = "dossier.main:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["dossier*"]
-
-[tool.setuptools.package-data]
-dossier = ["py.typed"]
-
-[tool.black]
-line-length = 88
-target-version = ['py39']
-
-[tool.mypy]
-python_version = "3.9"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true

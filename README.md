@@ -1,35 +1,34 @@
 # Dossier
 
-A Python package for processing X.509 certificates and validating their revocation status using OCSP.
+[![PyPI](https://img.shields.io/pypi/v/dossier)](https://pypi.org/project/dossier)
+[![Python Versions](https://img.shields.io/pypi/pyversions/dossier)](https://pypi.org/project/dossier/)
+[![Build status](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yml/badge.svg)](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yml)
+[![GitHub license](https://img.shields.io/pypi/l/dossier)](https://raw.githubusercontent.com/digicert/dossier/main/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-## Features
-
-- **Multiple Input Formats**: Process certificates from CSV files, directories, or ZIP archives
-- **OCSP Validation**: Check certificate revocation status using OCSP responders
-- **Flexible Output**: Generate reports in CSV or JSON format
-- **Bulk Processing**: Handle thousands of certificates efficiently
-- **Progress Tracking**: Visual progress bars for large datasets
-- **Library & CLI**: Use as a command-line tool or import as a Python library
-- **CCADB Integration**: Fetch trusted CA certificates directly from Mozilla's CCADB
-- **Certificate & CRL Validation**: Verify if a certificate or CRL is issued by a CA in the CCADB
+Dossier is an application that generates certificate reports that conform to the format specified in the
+[CCADB Incident Reporting Guidelines](https://www.ccadb.org/cas/incident-report). The application accepts individual
+PEM- or DER-encoded certificate files, CSV files containing PEM-encoded certificates, or ZIP archives containing
+certificate files in any of these formats. The application then reads the certificates, fetches CRL-based revocation
+status, and generates a full CSV-formatted report or a summarized crt.sh link list, depending on the number of certificates.
 
 ## Installation
 
-### From Source
-```bash
-git clone https://github.com/digicert/dossier.git
-cd dossier
-pip install -e .
-```
+1. Python 3.10 or newer must be installed. Python can be downloaded and installed from https://www.python.org/downloads/, or use your operating system's package manager. 
+2. To ensure that package dependencies for Dossier do not conflict with globally installed packages on your machine, it is
+recommended that you use [pipx](https://pypa.github.io/pipx/) to create a separate Python environment for Dossier. Follow
+the instructions on the [pipx homepage](https://pypa.github.io/pipx/) to install pipx.
 
-### For Development
-```bash
-git clone https://github.com/digicert/dossier.git
-cd dossier
-pip install -e .[dev]
-```
+3. Use pipx to install Dossier:
 
-## Command Line Usage
+    ```shell
+    pipx install dossier
+    ```
+
+Once installed, the bundled command line application will be available on your machine.
+
+
+## Usage
 
 After installation, use the `dossier` command:
 
@@ -45,36 +44,7 @@ dossier tests/pems_dir > directory_output.csv
 dossier tests/pems_zipped.zip > zip_output.csv
 ```
 
-### JSON Output
-```bash
-# CSV file input
-dossier sample_data.csv --format json > sample_data_output.json
 
-# Directory input
-dossier tests/pems_dir --format json > directory_output.json
-
-# ZIP file input
-dossier tests/pems_zipped.zip --format json > zip_output.json
-```
-
-## Library Usage
-
-```python
-from dossier import load_certs_from_directory, load_cert_from_file
-from dossier.main import process_cert_list
-
-# Load certificates from a directory (generator for memory efficiency)
-for cert_info in load_certs_from_directory('/path/to/certs'):
-    print(f"Loaded: {cert_info['source']}")
-    # Process individual certificate...
-
-# Load a single certificate
-cert = load_cert_from_file('/path/to/cert.pem')
-
-# Load all certificates into a list (for smaller datasets)
-from dossier import load_certs_from_directory_list
-cert_list = load_certs_from_directory_list('/path/to/certs')
-```
 
 ## Input Types
 
@@ -119,7 +89,28 @@ Optionally provide an incident discovery datetime using the `--incident` paramet
 
 ---
 
-## Usage
 
-```bash
-dossier sample_data.csv --format csv > sample_data_output.csv
+## Bugs?
+
+If you find a bug or other issue with Dossier, please create a GitHub issue.
+
+## Contributing
+
+As we intend for this project to be an ecosystem resource, we welcome contributions. It is preferred that proposals for new
+features be filed as GitHub issues so that design decisions, etc. can be discussed before submitting a pull request.
+
+This project uses [Black](https://github.com/psf/black) code formatter. The CI/CD pipeline checks for compliance with
+this format, so please ensure that any code contributions follow this format.
+
+## Acknowledgements
+
+Dossier is built on several open source packages. In particular, these packages are dependencies of this project:
+
+| Name               | License                                 | Author                                                         | URL                                               |
+|--------------------|-----------------------------------------|----------------------------------------------------------------|---------------------------------------------------|
+| cryptography       | Apache Software License; BSD License    | The Python Cryptographic Authority and individual contributors | https://github.com/pyca/cryptography              |
+| httpx              | BSD 3-Clause "New" or "Revised" License | Encode OSS Ltd.                                                | https://github.com/encode/httpx                   |
+| python-dateutil    | Apache Software License; BSD License    | Gustavo Niemeyer                                               | https://github.com/dateutil/dateutil              |
+| tqdm               | MIT License                             | tqdm contributors                                              | https://github.com/tqdm/tqdm                      |
+
+The Dossier maintainers are grateful to the authors of these open source contributions.
