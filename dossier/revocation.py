@@ -22,13 +22,13 @@ class RevocationWindow(enum.Enum):
 
     @classmethod
     def from_string(cls, s):
-        s_lower = s.upper()
+        s = s.upper()
 
-        if s_lower == "24H":
+        if s == "24H":
             return cls.TWENTY_FOUR_HOURS
-        elif s_lower == "5D":
+        elif s == "5D":
             return cls.FIVE_DAYS
-        elif s_lower == "7D":
+        elif s == "7D":
             return cls.SEVEN_DAYS
         else:
             raise ValueError(f"Invalid value: {s}")
