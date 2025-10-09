@@ -1,0 +1,55 @@
+name: CI / CD
+
+on:
+  pull_request:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test source code against Black formatter
+        uses: psf/black@stable
+
+      - name: Build wheel
+        run: pipx run build
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/*
+
+      - name: Install wheel
+        run: |
+          export WHEELFILE=`ls -1 dist/*.whl | head -n 1`
+          pip install "$WHEELFILE[dev]"
+
+      - name: Run tests with pytest
+        run: |
+          pytest -v
+
+  upload_pypi:
+    needs: build_and_test
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dossier
+
+    steps:
+      - name: Download wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
