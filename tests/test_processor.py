@@ -111,7 +111,7 @@ def test_duplicate_fingerprint():
     try:
         file = _create_csv_file([ee, ee])
 
-        proc = processor.Processor(_create_revocation_manager(crl), show_progress=False)
+        proc = processor.Processor(_create_revocation_manager(crl), True)
         proc.process_files([file])
 
         assert statistics.INSTANCE.duplicate_cert_count == 1
@@ -136,7 +136,7 @@ def test_redacted_smime():
     try:
         file = _create_csv_file([ee])
 
-        proc = processor.Processor(_create_revocation_manager(crl), show_progress=False)
+        proc = processor.Processor(_create_revocation_manager(crl), True)
         entries = proc.process_files([file])
 
         assert len(entries) == 1
@@ -162,7 +162,7 @@ def test_not_redacted_tls():
     try:
         file = _create_csv_file([ee])
 
-        proc = processor.Processor(_create_revocation_manager(crl), show_progress=False)
+        proc = processor.Processor(_create_revocation_manager(crl), True)
         entries = proc.process_files([file])
 
         assert len(entries) == 1
@@ -195,7 +195,7 @@ def test_tls_final_duplicate_serial_same_issuer():
     try:
         file = _create_csv_file([ee1, ee2])
 
-        proc = processor.Processor(_create_revocation_manager(crl), show_progress=False)
+        proc = processor.Processor(_create_revocation_manager(crl), True)
         entries = proc.process_files([file])
 
         assert len(entries) == 1
@@ -237,7 +237,7 @@ def test_tls_precert_duplicate_serial_same_issuer():
     try:
         file = _create_csv_file([ee1, ee2])
 
-        proc = processor.Processor(_create_revocation_manager(crl), show_progress=False)
+        proc = processor.Processor(_create_revocation_manager(crl), True)
         entries = proc.process_files([file])
 
         assert len(entries) == 1

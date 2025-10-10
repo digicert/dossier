@@ -41,8 +41,7 @@ def test_ccadb_expired_ica_skipped():
     )
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     assert not client._issuers_by_name
@@ -66,8 +65,7 @@ def test_ccadb_revoked_ica_skipped():
     )
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     assert not client._issuers_by_name
@@ -91,8 +89,7 @@ def test_ccadb_parent_revoked_ica_skipped():
     )
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     assert not client._issuers_by_name
@@ -116,8 +113,7 @@ def test_ccadb_parent_valid_ica():
     )
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     assert len(client._issuers_by_name) == 1
@@ -144,8 +140,7 @@ def test_issuer_not_found():
     ee_cert = pki_maker.generate_tls_ee(_ICA_B, pki_maker.RFC9500_INTER_B_KEY)
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     assert client.find_issuer_entry(ee_cert) is None
@@ -180,8 +175,7 @@ def test_issuer_found():
     ee_cert = pki_maker.generate_tls_ee(_ICA_A_KEY_1, pki_maker.RFC9500_INTER_A_KEY_1)
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     issuer_entry = client.find_issuer_entry(ee_cert)
@@ -227,8 +221,7 @@ def test_key_rollover_found():
     ee_cert = pki_maker.generate_tls_ee(_ICA_A_KEY_2, pki_maker.RFC9500_INTER_A_KEY_2)
 
     client = ccadb_client.CcadbClient(
-        create_http_client(pems_bytes, entries_bytes),
-        _CURRENT_TIME,
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
     )
 
     issuer_entry = client.find_issuer_entry(ee_cert)
