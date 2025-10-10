@@ -27,16 +27,16 @@ class Statistics:
 
     def output(self) -> None:
         logger.info(
-            f"Delayed revocation valid certificate count: {self.delayed_valid_cert_count}"
+            f"Delayed revocation valid certificate pair count: {self.delayed_valid_cert_count}"
         )
         logger.info(
-            f"Delayed revocation revoked certificate count: {self.delayed_revoked_cert_count}"
+            f"Delayed revocation revoked certificate pair count: {self.delayed_revoked_cert_count}"
         )
         logger.info(
-            f"Timely revoked certificate count: {self.timely_revoked_cert_count}"
+            f"Timely revoked certificate pair count: {self.timely_revoked_cert_count}"
         )
-        logger.info(f"Expired certificate count: {self.expired_cert_count}")
-        logger.info(f"Valid certificate count: {self.valid_cert_count}")
+        logger.info(f"Expired certificate pair count: {self.expired_cert_count}")
+        logger.info(f"Valid certificate pair count: {self.valid_cert_count}")
         logger.info(
             f"Final certificate without corresponding precertificate count: {self.final_without_precert}"
         )

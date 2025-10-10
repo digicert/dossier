@@ -27,7 +27,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--output-file",
-        type=argparse.FileType("w"),
+        type=lambda p: open(p, "w", encoding="utf-8", newline=""),
         help="Output file (default: stdout)",
         default=sys.stdout,
     )
