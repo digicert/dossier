@@ -1,10 +1,11 @@
 import datetime
+import json
 
 import httpx
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.x509 import CRLReason
+from cryptography.x509 import ReasonFlags
 
 from dossier import statistics, revocation, ccadb_client
 
@@ -20,13 +21,17 @@ _ICA_CERT_B = pki_maker.generate_inter_b_ca(_ROOT_CERT)
 _CURRENT_TIME = datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)
 
 
-def _create_ccadb_entry(cert):
+def _create_ccadb_entry(cert, partitioned_crl=False):
     return {
         "SHA-256 Fingerprint": cert.fingerprint(hashes.SHA256()).hex(),
         "Revocation Status": "Not Revoked",
         "Valid To (GMT)": "9999.12.31",
-        "Full CRL Issued By This CA": "http://ca.example/crls/full.crl",
-        "JSON Array of Partitioned CRLs": "",
+        "Full CRL Issued By This CA": (
+            "" if partitioned_crl else "http://ca.example/crls/crl.crl"
+        ),
+        "JSON Array of Partitioned CRLs": (
+            json.dumps(["http://ca.example/crls/crl.crl"]) if partitioned_crl else ""
+        ),
     }
 
 
@@ -49,7 +54,7 @@ def _get_crl_http_client(crl: x509.CertificateRevocationList) -> httpx.Client:
     def handle_request(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
 
-        if url == "http://ca.example/crls/full.crl":
+        if url == "http://ca.example/crls/crl.crl":
             return httpx.Response(
                 200, content=crl.public_bytes(serialization.Encoding.DER)
             )
@@ -279,3 +284,48 @@ def test_revocation_manager_revoked_no_reason_code():
 
     assert statistics.INSTANCE.timely_revoked_cert_count == 1
     assert all(c == 0 for c in statistics.INSTANCE.cert_count_by_revocation_reason_code)
+
+
+def test_revocation_manager_revoked_partitioned():
+    ccadb = ccadb_client.CcadbClient(
+        ccadb_utils.create_http_client(
+            ccadb_utils.write_ccadb_pems(
+                [_ICA_CERT_A_KEY_1.public_bytes(serialization.Encoding.PEM).decode()]
+            ),
+            ccadb_utils.write_ccadb_all_certs(
+                [
+                    _create_ccadb_entry(_ICA_CERT_A_KEY_1, True),
+                ]
+            ),
+        ),
+        _CURRENT_TIME,
+    )
+
+    classifier = revocation.RevocationClassifier(
+        revocation.RevocationWindow.TWENTY_FOUR_HOURS,
+        _CURRENT_TIME - datetime.timedelta(days=1),
+        _CURRENT_TIME,
+    )
+
+    cert = pki_maker.generate_tls_ee(_ICA_CERT_A_KEY_1, pki_maker.RFC9500_INTER_A_KEY_1)
+
+    manager = revocation.RevocationManager(
+        _get_crl_http_client(
+            pki_maker.generate_crl(
+                _ICA_CERT_A_KEY_1,
+                pki_maker.RFC9500_INTER_A_KEY_1,
+                [(cert.serial_number, _CURRENT_TIME, ReasonFlags.key_compromise)],
+                idp_uri="http://ca.example/crls/crl.crl",
+            )
+        ),
+        ccadb,
+        classifier,
+        _CURRENT_TIME,
+    )
+
+    info = manager.get_revocation_info(cert)
+    assert info.status == "Yes"
+    assert info.date == _CURRENT_TIME.isoformat()
+    assert info.reason == ReasonFlags.key_compromise.name
+
+    assert statistics.INSTANCE.timely_revoked_cert_count == 1

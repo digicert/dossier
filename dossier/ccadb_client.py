@@ -29,7 +29,7 @@ _PEM_DOWNLOAD_START_YEAR = 1996
 class CcadbEntry(typing.NamedTuple):
     cert: x509.Certificate
     full_crl_uri: str
-    partitioned_crl_uris: List[str]
+    partitioned_crl_uris: typing.Tuple[str]
 
 
 class CcadbClient:
@@ -121,7 +121,7 @@ class CcadbClient:
                         "JSON Array of Partitioned CRLs"
                     ]
                     partitioned_crl_uris = (
-                        json.loads(partitioned_crl_uris_raw)
+                        tuple(json.loads(partitioned_crl_uris_raw))
                         if partitioned_crl_uris_raw
                         else None
                     )
