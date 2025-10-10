@@ -68,10 +68,10 @@ class Processor:
     def __init__(
         self,
         revocation_manager: RevocationManager,
-        show_progress: bool = True,
+        hide_progress: bool,
     ):
         self._revocation_manager = revocation_manager
-        self._show_progress = show_progress
+        self._hide_progress = hide_progress
 
     def process_files(self, input_files: List[io.FileIO]) -> List[ReportEntry]:
         entries_by_issuer_and_serial_number = {}
@@ -90,7 +90,7 @@ class Processor:
             for cert in tqdm.tqdm(
                 reader(input_file, input_file.name),
                 desc=input_file.name,
-                disable=not self._show_progress,
+                disable=self._hide_progress,
                 initial=statistics.INSTANCE.total_cert_count,
             ):
                 fingerprint = cert.fingerprint(hashes.SHA256())

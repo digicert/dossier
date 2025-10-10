@@ -4,7 +4,6 @@ import datetime
 import json
 import logging
 import typing
-from typing import List
 
 import httpx
 import tqdm
@@ -37,13 +36,13 @@ class CcadbClient:
         self,
         http_client: httpx.Client,
         current_time: datetime.datetime,
+        hide_progress: bool,
         start_year: int = _PEM_DOWNLOAD_START_YEAR,
-        show_progress: bool = True,
     ):
         self._http_client = http_client
         self._start_year = start_year
+        self._hide_progress = hide_progress
         self._current_date_str = current_time.strftime("%Y.%m.%d")
-        self._show_progress = show_progress
 
         self._ccadb_records_by_fingerprint = self._download_all_records()
 
@@ -77,7 +76,7 @@ class CcadbClient:
         for year in tqdm.tqdm(
             list(range(self._start_year, current_year + 1)),
             desc="Fetching CA certificates from CCADB",
-            disable=not self._show_progress,
+            disable=self._hide_progress,
         ):
             url = _CCADB_TEMPLATE.format(year=year)
             logger.info("Fetching CA data from %s", url)
@@ -93,7 +92,7 @@ class CcadbClient:
                     try:
                         cert = x509.load_pem_x509_certificate(pem.encode())
                     except ValueError as e:
-                        logger.info(
+                        logger.debug(
                             f"Failed to parse cert in CSV row #%d: %s", idx + 1, e
                         )
                         continue

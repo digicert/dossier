@@ -23,7 +23,7 @@ def main() -> int:
         help="Certificate count threshold for generating the full report (default: 10000)",
     )
     parser.add_argument(
-        "--show-progress", action="store_true", help="Show progress bars"
+        "--hide-progress", action="store_true", help="Hide progress bars"
     )
     parser.add_argument(
         "--output-file",
@@ -40,9 +40,9 @@ def main() -> int:
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="WARNING",
+        default="INFO",
         type=str.upper,
-        help="Set the logging level (default: WARNING)",
+        help="Set the logging level (default: INFO)",
     )
     parser.add_argument(
         "incident_discovery_datetime",
@@ -73,7 +73,7 @@ def main() -> int:
 
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    ccadb = ccadb_client.CcadbClient(http_client, now)
+    ccadb = ccadb_client.CcadbClient(http_client, now, args.hide_progress)
     classifier = revocation.RevocationClassifier(
         revocation_window, args.incident_discovery_datetime, now
     )
@@ -82,7 +82,7 @@ def main() -> int:
         http_client, ccadb, classifier, now
     )
 
-    proc = processor.Processor(revocation_manager, args.show_progress)
+    proc = processor.Processor(revocation_manager, args.hide_progress)
     entries = proc.process_files(args.input_files)
 
     if len(entries) >= args.full_report_threshold:

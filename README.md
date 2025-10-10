@@ -48,17 +48,17 @@ There are a few caveats to note regarding the `input_files` argument:
 The following optional arguments can be supplied:
 
 1. `--full-report-threshold`: The maximum number of certificates to process before switching to generating a crt.sh link list instead of a full report. Default is `10000`.
-2. `--show-progress`: If specified, a progress bar will be displayed during processing.
+2. `--hide-progress`: If specified, the progress bar will not be displayed during processing.
 3. `--output-file`: The path to the output file. If not specified, output will be printed to standard output.
 4. `--log-file`: The path to a log file. If not specified, logs will be printed to standard error.
-5. `--log-level`: The logging level. Allowed values are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`. Default is `WARNING`.
+5. `--log-level`: The logging level. Allowed values are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`. Default is `INFO`.
 
 ### Example Invocations
 
-1. Generate a report for an incident discovered on 2025-07-29 at 15:00:00 UTC with a 24-hour revocation window with certificates in `cert1.pem`, `cert2.cer`, and `certs.zip`, printing the report to standard output with a progress bar:
+1. Generate a report for an incident discovered on 2025-07-29 at 15:00:00 UTC with a 24-hour revocation window with certificates in `cert1.pem`, `cert2.cer`, and `certs.zip`, printing the report to standard output without displaying a progress bar:
 
     ```shell
-    dossier 20250729T150000Z 24H cert1.pem cert2.cer certs.zip --show-progress
+    dossier 20250729T150000Z 24H cert1.pem cert2.cer certs.zip --hide-progress
     ```
 
 2. Generate a report for an incident discovered on 2025-07-29 at 15:00:00 UTC with a 5-day revocation window with certificates in `certs.csv`, writing the report to `report.csv` and logging debug information to `dossier.log`:
@@ -76,7 +76,7 @@ Once the required and optional arguments are supplied, Dossier will process the 
 3. Read in the supplied input files and extract certificates.
 4. For each certificate, fetch CRL-based revocation status by determining the issuer of the certificate and downloading the relevant CRL(s) using the CRL URI(s) disclosed in CCADB.
 5. Using the incident discovery date/time, revocation window, and revocation status, determine the revocation status (expired, timely revoked, delayed revocation, valid but planned to be revoked).
-6. Output statistics as a series of WARNING-level log messages, which provide comprehensive information about the certificates processed.
+6. Output statistics as a series of INFO-level log messages, which provide comprehensive information about the certificates processed.
 7. Generate a report in CSV format or a crt.sh link list, depending on the number of certificates processed and the value of the `--full-report-threshold` option.
 
 ## Some Notes on the Full Report Format
