@@ -47,6 +47,7 @@ _CCADB_CLIENT = ccadb_client.CcadbClient(
         ),
     ),
     _CURRENT_TIME,
+    True,
 )
 
 
@@ -299,6 +300,7 @@ def test_revocation_manager_revoked_partitioned():
             ),
         ),
         _CURRENT_TIME,
+        True,
     )
 
     classifier = revocation.RevocationClassifier(

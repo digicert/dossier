@@ -56,6 +56,7 @@ _CCADB_CLIENT = ccadb_client.CcadbClient(
         ),
     ),
     _CURRENT_TIME,
+    True,
 )
 
 _REVOCATION_CLASSIFIER = revocation.RevocationClassifier(

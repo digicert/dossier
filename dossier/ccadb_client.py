@@ -79,12 +79,16 @@ class CcadbClient:
             disable=self._hide_progress,
         ):
             url = _CCADB_TEMPLATE.format(year=year)
-            logger.info("Fetching CA data from %s", url)
+            logger.info("Fetching CA PEM data from %s", url)
 
             with self._http_client.stream("GET", url) as response:
                 response.raise_for_status()
 
                 loaded_cert_count = 0
+                expired_cert_count = 0
+                revoked_cert_count = 0
+                unparseable_cert_count = 0
+                unknown_issuer_count = 0
 
                 for idx, row in enumerate(csv.DictReader(response.iter_lines())):
                     pem = row["X.509 Certificate (PEM)"]
@@ -92,6 +96,8 @@ class CcadbClient:
                     try:
                         cert = x509.load_pem_x509_certificate(pem.encode())
                     except ValueError as e:
+                        unparseable_cert_count += 1
+
                         logger.debug(
                             f"Failed to parse cert in CSV row #%d: %s", idx + 1, e
                         )
@@ -101,6 +107,8 @@ class CcadbClient:
                         cert.fingerprint(hashes.SHA256())
                     )
                     if ccadb_entry is None:
+                        unknown_issuer_count += 1
+
                         statistics.INSTANCE.error_count += 1
 
                         logger.error(
@@ -109,8 +117,12 @@ class CcadbClient:
                         continue
 
                     if ccadb_entry["Revocation Status"] in self._REVOCATION_STATES:
+                        revoked_cert_count += 1
+
                         continue
                     if ccadb_entry["Valid To (GMT)"] < self._current_date_str:
+                        expired_cert_count += 1
+
                         continue
 
                     full_crl_uri_raw = ccadb_entry["Full CRL Issued By This CA"]
@@ -131,7 +143,13 @@ class CcadbClient:
 
                     loaded_cert_count += 1
 
-                logger.info(f"Loaded {loaded_cert_count} valid certs for year {year}")
+                logger.info(
+                    f"Loaded {loaded_cert_count} valid certs for year {year}. "
+                    f"Skipped {expired_cert_count} expired, "
+                    f"{revoked_cert_count} revoked, "
+                    f"{unparseable_cert_count} unparseable, "
+                    f"{unknown_issuer_count} unknown."
+                )
 
         return issuers_by_name
 
