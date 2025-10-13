@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dossier"
+version = "1.0.0"
+authors = [
+    {name = "Corey Bonnell", email = "corey.bonnell@digicert.com"},
+    {name = "Michael Lettona", email = "michael.lettona@digicert.com"},
+    {name = "Alex Campbell", email = "alex.campbell@digicert.com"},
+]
+description = "Certificate processing and OCSP validation tool"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Information Technology",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security :: Cryptography",
+]
+keywords = ["certificates", "x509", "smime", "ssl", "tls", "cryptography"]
+dependencies = [
+    "cryptography>=42",
+    "tqdm",
+    "httpx",
+    "python-dateutil",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+]
+
+[project.urls]
+Homepage = "https://github.com/digicert/dossier"
+Repository = "https://github.com/digicert/dossier"
+Issues = "https://github.com/digicert/dossier/issues"
+
+[project.scripts]
+dossier = "dossier.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dossier*"]
