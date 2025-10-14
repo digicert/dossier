@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cert-dossier"
-version = "1.0.0"
+version = "1.0.0.post1"
 authors = [
     {name = "Corey Bonnell", email = "corey.bonnell@digicert.com"},
     {name = "Michael Lettona", email = "michael.lettona@digicert.com"},
     {name = "Alex Campbell", email = "alex.campbell@digicert.com"},
 ]
-description = "Certificate processing and OCSP validation tool"
+description = "Generator for certificate reports conformant with CCADB IR Guidelines"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
