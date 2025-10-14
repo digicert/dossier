@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/dossier)](https://pypi.org/project/dossier)
 [![Python Versions](https://img.shields.io/pypi/pyversions/dossier)](https://pypi.org/project/dossier/)
-[![Build status](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yml/badge.svg)](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yml)
+[![Build status](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yml/badge.svg)](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yaml)
 [![GitHub license](https://img.shields.io/pypi/l/dossier)](https://raw.githubusercontent.com/digicert/dossier/main/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
