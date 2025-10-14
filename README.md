@@ -1,9 +1,9 @@
 # Dossier
 
-[![PyPI](https://img.shields.io/pypi/v/dossier)](https://pypi.org/project/dossier)
-[![Python Versions](https://img.shields.io/pypi/pyversions/dossier)](https://pypi.org/project/dossier/)
+[![PyPI](https://img.shields.io/pypi/v/cert-dossier)](https://pypi.org/project/cert-dossier)
+[![Python Versions](https://img.shields.io/pypi/pyversions/cert-dossier)](https://pypi.org/project/cert-dossier/)
 [![Build status](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yml/badge.svg)](https://github.com/digicert/dossier/actions/workflows/ci_cd_pipeline.yaml)
-[![GitHub license](https://img.shields.io/pypi/l/dossier)](https://raw.githubusercontent.com/digicert/dossier/main/LICENSE)
+[![GitHub license](https://img.shields.io/pypi/l/cert-dossier)](https://raw.githubusercontent.com/digicert/dossier/main/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Dossier is an application that generates certificate reports that conform to the format specified in the
@@ -22,7 +22,7 @@ the instructions on the [pipx homepage](https://pypa.github.io/pipx/) to install
 3. Use pipx to install Dossier:
 
     ```shell
-    pipx install dossier
+    pipx install cert-dossier
     ```
 
 Once installed, the bundled command line application will be available on your machine.
