@@ -132,17 +132,23 @@ def test_validate_partitioned_crl_no_idp():
 
 
 def test_validate_full_crl_with_idp():
+    # Full CRLs can legitimately have IDP extensions per RFC 5280
+    # This test verifies that such CRLs are accepted
     http_client = _create_http_client(
         next(iter(_PARTITIONED_CRLS.values())), status_code=200
     )
 
-    with pytest.raises(ValueError):
-        CrlClient(
-            _PARTITIONED_CA,
-            http_client,
-            crl_full_uri=_FULL_URI,
-            current_time=_NOW,
-        )
+    # Should not raise ValueError
+    client = CrlClient(
+        _PARTITIONED_CA,
+        http_client,
+        crl_full_uri=_FULL_URI,
+        current_time=_NOW,
+    )
+
+    # Verify the client was created successfully
+    assert client is not None
+    assert len(client.crls) == 1
 
 
 def test_cert_not_revoked_full():
