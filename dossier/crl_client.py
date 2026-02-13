@@ -101,12 +101,12 @@ class CrlClient:
         if expected_idp is not None:
             if idp_ext is None:
                 raise ValueError("Expected IDP extension not found in CRL.")
-            
+
             if not any(
-                isinstance(g, x509.UniformResourceIdentifier) and g.value == expected_idp
+                isinstance(g, x509.UniformResourceIdentifier)
+                and g.value == expected_idp
                 for g in idp_ext.value.full_name or []
             ):
                 raise ValueError(
                     f"Expected IDP {expected_idp} not found in CRL IDP extension."
                 )
-
