@@ -150,13 +150,21 @@ class CcadbClient:
                         try:
                             ski_base64_stripped = ski_base64.strip()
                             if len(ski_base64_stripped) > 256:
-                                raise ValueError(f"SKI value exceeds maximum expected length: {len(ski_base64_stripped)}")
-                            ski_bytes = base64.b64decode(ski_base64_stripped, validate=True)
+                                raise ValueError(
+                                    f"SKI value exceeds maximum expected length: {len(ski_base64_stripped)}"
+                                )
+                            ski_bytes = base64.b64decode(
+                                ski_base64_stripped, validate=True
+                            )
                             if ski_bytes not in self._issuers_by_ski:
                                 self._issuers_by_ski[ski_bytes] = []
                             self._issuers_by_ski[ski_bytes].append(entry)
                         except (binascii.Error, ValueError) as e:
-                            ski_preview = ski_base64[:32].replace("\n", "\\n").replace("\r", "\\r")
+                            ski_preview = (
+                                ski_base64[:32]
+                                .replace("\n", "\\n")
+                                .replace("\r", "\\r")
+                            )
                             logger.debug(
                                 "Failed to decode SKI (len=%d, preview='%s...') for cert: %s",
                                 len(ski_base64),
@@ -208,7 +216,9 @@ class CcadbClient:
                         continue
         except x509.ExtensionNotFound:
             # No AKI extension, fall back to subject name matching
-            logger.debug(f"No AKI extension found for cert {cert.subject.rfc4514_string()}, using fallback")
+            logger.debug(
+                f"No AKI extension found for cert {cert.subject.rfc4514_string()}, using fallback"
+            )
             pass
 
         # Fallback: subject name match

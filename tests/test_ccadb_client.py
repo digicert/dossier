@@ -255,7 +255,9 @@ def test_issuer_found_via_aki_ski():
         ]
     )
 
-    ee_cert = pki_maker.generate_tls_ee_with_aki(_ICA_A_KEY_1, pki_maker.RFC9500_INTER_A_KEY_1)
+    ee_cert = pki_maker.generate_tls_ee_with_aki(
+        _ICA_A_KEY_1, pki_maker.RFC9500_INTER_A_KEY_1
+    )
 
     client = ccadb_client.CcadbClient(
         create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
@@ -295,7 +297,9 @@ def test_issuer_found_via_aki_ski_ambiguous_name():
         ]
     )
 
-    ee_cert = pki_maker.generate_tls_ee_with_aki(_ICA_A_KEY_2, pki_maker.RFC9500_INTER_A_KEY_2)
+    ee_cert = pki_maker.generate_tls_ee_with_aki(
+        _ICA_A_KEY_2, pki_maker.RFC9500_INTER_A_KEY_2
+    )
 
     client = ccadb_client.CcadbClient(
         create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
