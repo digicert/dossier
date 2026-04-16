@@ -114,7 +114,7 @@ class Processor:
                 if entry is None:
                     cert_type = _get_certificate_type(cert)
                     if cert_type is None:
-                        statistics.INSTANCE.unknown_certificate_types += 1
+                        statistics.INSTANCE.unknown_cert_type += 1
 
                     subject = (
                         "REDACTED"
