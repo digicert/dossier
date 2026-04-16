@@ -203,6 +203,34 @@ def generate_inter_b_ca(root_cert):
     return _generate_ica(root_cert, RFC9500_INTER_B_KEY, "Example Inter B CA")
 
 
+def generate_tls_ee_with_aki(issuer_cert, issuer_key):
+    global dnsname_counter
+
+    dnsname_counter += 1
+
+    temp_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    return (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([]))
+        .issuer_name(issuer_cert.subject)
+        .public_key(temp_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(_NOT_BEFORE)
+        .not_valid_after(_NOT_BEFORE + datetime.timedelta(days=100))
+        .add_extension(
+            SubjectAlternativeName([x509.DNSName(f"test{dnsname_counter}.example")]),
+            critical=True,
+        )
+        .add_extension(ExtendedKeyUsage([x509.OID_SERVER_AUTH]), critical=False)
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(issuer_key.public_key()),
+            critical=False,
+        )
+        .sign(issuer_key, hashes.SHA256())
+    )
+
+
 def _generate_ee(
     issuer_cert, issuer_key, san_value, serial_number=None, is_precert=False
 ):
