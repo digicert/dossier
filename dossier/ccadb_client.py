@@ -1,4 +1,5 @@
 import base64
+import binascii
 import collections
 import csv
 import datetime
@@ -147,13 +148,20 @@ class CcadbClient:
                     ski_base64 = ccadb_entry.get("Subject Key Identifier")
                     if ski_base64:
                         try:
-                            ski_bytes = base64.b64decode(ski_base64)
+                            ski_base64_stripped = ski_base64.strip()
+                            if len(ski_base64_stripped) > 256:
+                                raise ValueError(f"SKI value exceeds maximum expected length: {len(ski_base64_stripped)}")
+                            ski_bytes = base64.b64decode(ski_base64_stripped, validate=True)
                             if ski_bytes not in self._issuers_by_ski:
                                 self._issuers_by_ski[ski_bytes] = []
                             self._issuers_by_ski[ski_bytes].append(entry)
-                        except Exception as e:
+                        except (binascii.Error, ValueError) as e:
+                            ski_preview = ski_base64[:32].replace("\n", "\\n").replace("\r", "\\r")
                             logger.debug(
-                                f"Failed to decode SKI '{ski_base64}' for cert: {e}"
+                                "Failed to decode SKI (len=%d, preview='%s...') for cert: %s",
+                                len(ski_base64),
+                                ski_preview,
+                                e,
                             )
 
                     loaded_cert_count += 1

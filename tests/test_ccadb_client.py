@@ -1,6 +1,8 @@
+import base64
 import datetime
 
 from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.x509.oid import ExtensionOID
 
 from dossier import ccadb_client
 from tests import pki_maker
@@ -227,3 +229,110 @@ def test_key_rollover_found():
     issuer_entry = client.find_issuer_entry(ee_cert)
     assert issuer_entry is not None
     assert issuer_entry.cert.subject == _ICA_A_KEY_2.subject
+
+
+def _ski_b64(cert):
+    ski_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_KEY_IDENTIFIER)
+    return base64.b64encode(ski_ext.value.digest).decode()
+
+
+def test_issuer_found_via_aki_ski():
+    """EE cert with AKI is matched to issuer via SKI index, bypassing subject-name lookup."""
+    pems_bytes = write_ccadb_pems([_ICA_A_KEY_1_PEM])
+
+    entries_bytes = write_ccadb_all_certs(
+        [
+            {
+                "SHA-256 Fingerprint": (
+                    _ICA_A_KEY_1.fingerprint(hashes.SHA256()).hex()
+                ).upper(),
+                "Revocation Status": "Good",
+                "Valid To (GMT)": "2025.12.31",
+                "Full CRL Issued By This CA": "",
+                "JSON Array of Partitioned CRLs": "",
+                "Subject Key Identifier": _ski_b64(_ICA_A_KEY_1),
+            },
+        ]
+    )
+
+    ee_cert = pki_maker.generate_tls_ee_with_aki(_ICA_A_KEY_1, pki_maker.RFC9500_INTER_A_KEY_1)
+
+    client = ccadb_client.CcadbClient(
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
+    )
+
+    issuer_entry = client.find_issuer_entry(ee_cert)
+    assert issuer_entry is not None
+    assert issuer_entry.cert.subject == _ICA_A_KEY_1.subject
+
+
+def test_issuer_found_via_aki_ski_ambiguous_name():
+    """Two ICAs share the same subject name (key rollover); SKI selects the correct one."""
+    pems_bytes = write_ccadb_pems([_ICA_A_KEY_1_PEM, _ICA_A_KEY_2_PEM])
+
+    entries_bytes = write_ccadb_all_certs(
+        [
+            {
+                "SHA-256 Fingerprint": (
+                    _ICA_A_KEY_1.fingerprint(hashes.SHA256()).hex()
+                ).upper(),
+                "Revocation Status": "Good",
+                "Valid To (GMT)": "2025.12.31",
+                "Full CRL Issued By This CA": "",
+                "JSON Array of Partitioned CRLs": "",
+                "Subject Key Identifier": _ski_b64(_ICA_A_KEY_1),
+            },
+            {
+                "SHA-256 Fingerprint": (
+                    _ICA_A_KEY_2.fingerprint(hashes.SHA256()).hex()
+                ).upper(),
+                "Revocation Status": "Good",
+                "Valid To (GMT)": "2025.12.31",
+                "Full CRL Issued By This CA": "",
+                "JSON Array of Partitioned CRLs": "",
+                "Subject Key Identifier": _ski_b64(_ICA_A_KEY_2),
+            },
+        ]
+    )
+
+    ee_cert = pki_maker.generate_tls_ee_with_aki(_ICA_A_KEY_2, pki_maker.RFC9500_INTER_A_KEY_2)
+
+    client = ccadb_client.CcadbClient(
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
+    )
+
+    issuer_entry = client.find_issuer_entry(ee_cert)
+    assert issuer_entry is not None
+    assert issuer_entry.cert == _ICA_A_KEY_2
+
+
+def test_invalid_ski_in_ccadb_falls_back_to_name():
+    """An unparseable SKI in the CCADB entry is skipped; subject-name fallback still finds the issuer."""
+    pems_bytes = write_ccadb_pems([_ICA_A_KEY_1_PEM])
+
+    entries_bytes = write_ccadb_all_certs(
+        [
+            {
+                "SHA-256 Fingerprint": (
+                    _ICA_A_KEY_1.fingerprint(hashes.SHA256()).hex()
+                ).upper(),
+                "Revocation Status": "Good",
+                "Valid To (GMT)": "2025.12.31",
+                "Full CRL Issued By This CA": "",
+                "JSON Array of Partitioned CRLs": "",
+                "Subject Key Identifier": "!!!not-valid-base64!!!",
+            },
+        ]
+    )
+
+    ee_cert = pki_maker.generate_tls_ee(_ICA_A_KEY_1, pki_maker.RFC9500_INTER_A_KEY_1)
+
+    client = ccadb_client.CcadbClient(
+        create_http_client(pems_bytes, entries_bytes), _CURRENT_TIME, True
+    )
+
+    assert not client._issuers_by_ski
+
+    issuer_entry = client.find_issuer_entry(ee_cert)
+    assert issuer_entry is not None
+    assert issuer_entry.cert.subject == _ICA_A_KEY_1.subject

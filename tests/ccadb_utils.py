@@ -30,8 +30,10 @@ def write_ccadb_all_certs(entries: list[dict]) -> bytes:
                 "Valid To (GMT)",
                 "Full CRL Issued By This CA",
                 "JSON Array of Partitioned CRLs",
+                "Subject Key Identifier",
             ],
             lineterminator="\n",
+            restval="",
         )
         c.writeheader()
         c.writerows(entries)
