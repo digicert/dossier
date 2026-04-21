@@ -62,10 +62,33 @@ def test_full_report_basic():
         assert ("a" * 64) in output
         assert ("b" * 64) in output
 
-        assert hex(123456)[2:] in output
+        assert "01e240" in output  # 123456 → 3 bytes → 01e240 (leading zero preserved)
         assert "CN=Test" in output
         assert "CN=Issuer" in output
         assert "2024-01-01T00:00:00+00:00" in output
         assert "2025-01-01T00:00:00+00:00" in output
         assert "example.com www.example.com" in output
+
+
+def test_full_report_serial_leading_zero():
+    """Serial numbers whose first nibble is 0 must not have it truncated."""
+    # 0x0ff00d has bit_length=20 → 3 bytes → should output '0ff00d', not 'ff00d'
+    entry = report.ReportEntry(
+        cert_type=CertificateType.TLS_EE,
+        serial_number=0x0FF00D,
+        subject="CN=Test",
+        issuer="CN=Issuer",
+        not_before=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        not_after=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
+        dns_names="example.com",
+        revocation_info=revocation.RevocationInfo("N/A", "N/A", "N/A"),
+        precert_sha256_hashes=[],
+        final_cert_sha256_hashes=[bytes.fromhex("c" * 64)],
+    )
+
+    with io.StringIO() as f:
+        report.write_full_report([entry], f)
+        output = f.getvalue()
+        assert "0ff00d" in output
+        assert "ff00d" not in output.replace("0ff00d", "")
         assert "N/A" in output

@@ -53,6 +53,8 @@ def _get_certificate_type(cert) -> Optional[CertificateType]:
             return CertificateType.TLS_EE
         elif oid.ExtendedKeyUsageOID.EMAIL_PROTECTION in eku_ext.value:
             return CertificateType.SMIME_EE
+        elif oid.ExtendedKeyUsageOID.CODE_SIGNING in eku_ext.value:
+            return CertificateType.CODE_SIGNING_EE
         else:
             logger.warning("Unknown EKU: %s", eku_ext.value)
 

@@ -19,8 +19,8 @@ from dossier import statistics
 
 logger = logging.getLogger(__name__)
 
-_ALL_ROOTS_INTERMEDIATES_V4_URI = (
-    "https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatv4"
+_ALL_ROOTS_INTERMEDIATES_V5_URI = (
+    "https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatv5"
 )
 _CCADB_TEMPLATE = "https://ccadb.my.salesforce-sites.com/ccadb/AllCertificatePEMsCSVFormat?NotBeforeYear={year}"
 
@@ -57,11 +57,11 @@ class CcadbClient:
     def _download_all_records(self):
         logger.info(
             "Downloading all Root and Intermediate records from CCADB at %s",
-            _ALL_ROOTS_INTERMEDIATES_V4_URI,
+            _ALL_ROOTS_INTERMEDIATES_V5_URI,
         )
 
         with self._http_client.stream(
-            "GET", _ALL_ROOTS_INTERMEDIATES_V4_URI
+            "GET", _ALL_ROOTS_INTERMEDIATES_V5_URI
         ) as response:
             response.raise_for_status()
 
@@ -129,8 +129,12 @@ class CcadbClient:
 
                         continue
 
-                    full_crl_uri_raw = ccadb_entry["Full CRL Issued By This CA"]
-                    full_crl_uri = full_crl_uri_raw if full_crl_uri_raw else None
+                    full_crl_uri_raw = ccadb_entry["JSON Array of All Full CRL URLs"]
+                    full_crl_uri = (
+                        json.loads(full_crl_uri_raw)[0]
+                        if full_crl_uri_raw
+                        else None
+                    )
 
                     partitioned_crl_uris_raw = ccadb_entry[
                         "JSON Array of Partitioned CRLs"
@@ -199,7 +203,9 @@ class CcadbClient:
                 matched_issuers = self._issuers_by_ski.get(aki, [])
                 if matched_issuers:
                     logger.debug(
-                        f"Found {len(matched_issuers)} issuer(s) via AKI/SKI match for cert {cert.subject.rfc4514_string()}"
+                        "Found %d issuer(s) via AKI/SKI match for cert %s",
+                        len(matched_issuers),
+                        cert.subject.rfc4514_string(),
                     )
                 for issuer in matched_issuers:
                     try:
