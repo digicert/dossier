@@ -131,9 +131,7 @@ class CcadbClient:
 
                     full_crl_uri_raw = ccadb_entry["JSON Array of All Full CRL URLs"]
                     full_crl_uri = (
-                        json.loads(full_crl_uri_raw)[0]
-                        if full_crl_uri_raw
-                        else None
+                        json.loads(full_crl_uri_raw)[0] if full_crl_uri_raw else None
                     )
 
                     partitioned_crl_uris_raw = ccadb_entry[

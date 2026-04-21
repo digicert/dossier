@@ -36,7 +36,9 @@ def _create_ccadb_entry(cert):
         "SHA-256 Fingerprint": cert.fingerprint(hashes.SHA256()).hex(),
         "Revocation Status": "Not Revoked",
         "Valid To (GMT)": "9999.12.31",
-        "JSON Array of All Full CRL URLs": json.dumps(["http://ca.example/crls/full.crl"]),
+        "JSON Array of All Full CRL URLs": json.dumps(
+            ["http://ca.example/crls/full.crl"]
+        ),
         "JSON Array of Partitioned CRLs": "",
     }
 
