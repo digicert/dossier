@@ -61,9 +61,7 @@ def write_full_report(report_entries: Sequence[ReportEntry], output_io: io.TextI
                 entry.issuer,
                 entry.not_before.isoformat(),
                 entry.not_after.isoformat(),
-                entry.serial_number.to_bytes(
-                    (entry.serial_number.bit_length() + 7) // 8 or 1, "big"
-                ).hex(),
+                hex(entry.serial_number)[2:],
                 entry.dns_names,
                 entry.revocation_info.status,
                 entry.revocation_info.date,
