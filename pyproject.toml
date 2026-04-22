@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cert-dossier"
-version = "1.0.0.post1"
+version = "1.0.1"
 authors = [
     {name = "Corey Bonnell", email = "corey.bonnell@digicert.com"},
     {name = "Michael Lettona", email = "michael.lettona@digicert.com"},
