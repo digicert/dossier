@@ -10,7 +10,7 @@ def create_http_client(pems_content: bytes, entries_content: bytes) -> httpx.Cli
 
         if "NotBeforeYear=2025" in url:
             content = pems_content
-        elif "AllCertificateRecordsCSVFormatv4" in url:
+        elif "AllCertificateRecordsCSVFormatv5" in url:
             content = entries_content
         else:
             content = _EMPTY_PEMS
@@ -28,7 +28,7 @@ def write_ccadb_all_certs(entries: list[dict]) -> bytes:
                 "SHA-256 Fingerprint",
                 "Revocation Status",
                 "Valid To (GMT)",
-                "Full CRL Issued By This CA",
+                "JSON Array of All Full CRL URLs",
                 "JSON Array of Partitioned CRLs",
                 "Subject Key Identifier",
             ],

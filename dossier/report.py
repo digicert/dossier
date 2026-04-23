@@ -10,6 +10,7 @@ from dossier import revocation
 class CertificateType(enum.Enum):
     TLS_EE = enum.auto()
     SMIME_EE = enum.auto()
+    CODE_SIGNING_EE = enum.auto()
     CA = enum.auto()
 
 

@@ -36,7 +36,7 @@ def test_ccadb_expired_ica_skipped():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2023.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             }
         ]
@@ -60,7 +60,7 @@ def test_ccadb_revoked_ica_skipped():
                 ).upper(),
                 "Revocation Status": "Revoked",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             }
         ]
@@ -84,7 +84,7 @@ def test_ccadb_parent_revoked_ica_skipped():
                 ).upper(),
                 "Revocation Status": "Parent Cert Revoked",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
         ]
@@ -108,7 +108,7 @@ def test_ccadb_parent_valid_ica():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
         ]
@@ -133,7 +133,7 @@ def test_issuer_not_found():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
         ]
@@ -159,7 +159,7 @@ def test_issuer_found():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
             {
@@ -168,7 +168,7 @@ def test_issuer_found():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
         ]
@@ -196,7 +196,7 @@ def test_key_rollover_found():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
             {
@@ -205,7 +205,7 @@ def test_key_rollover_found():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
             {
@@ -214,7 +214,7 @@ def test_key_rollover_found():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
             },
         ]
@@ -248,7 +248,7 @@ def test_issuer_found_via_aki_ski():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
                 "Subject Key Identifier": _ski_b64(_ICA_A_KEY_1),
             },
@@ -280,7 +280,7 @@ def test_issuer_found_via_aki_ski_ambiguous_name():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
                 "Subject Key Identifier": _ski_b64(_ICA_A_KEY_1),
             },
@@ -290,7 +290,7 @@ def test_issuer_found_via_aki_ski_ambiguous_name():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
                 "Subject Key Identifier": _ski_b64(_ICA_A_KEY_2),
             },
@@ -322,7 +322,7 @@ def test_invalid_ski_in_ccadb_falls_back_to_name():
                 ).upper(),
                 "Revocation Status": "Good",
                 "Valid To (GMT)": "2025.12.31",
-                "Full CRL Issued By This CA": "",
+                "JSON Array of All Full CRL URLs": "",
                 "JSON Array of Partitioned CRLs": "",
                 "Subject Key Identifier": "!!!not-valid-base64!!!",
             },

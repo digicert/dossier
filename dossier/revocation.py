@@ -148,11 +148,13 @@ class RevocationManager:
                 revocation_date = crl_entry.revocation_date_utc.isoformat()
 
                 reason_code = self._extract_reason_code_str(crl_entry)
-                if reason_code is not None:
-                    revocation_reason = reason_code
+                # A missing CRLReason extension implicitly means unspecified (reason code 0)
+                revocation_reason = (
+                    reason_code if reason_code is not None else "unspecified"
+                )
 
-                    statistics.INSTANCE.cert_count_by_revocation_reason_code[
-                        reason_code
-                    ] += 1
+                statistics.INSTANCE.cert_count_by_revocation_reason_code[
+                    revocation_reason
+                ] += 1
 
         return RevocationInfo(revocation_status, revocation_date, revocation_reason)

@@ -26,8 +26,8 @@ def _create_ccadb_entry(cert, partitioned_crl=False):
         "SHA-256 Fingerprint": cert.fingerprint(hashes.SHA256()).hex(),
         "Revocation Status": "Not Revoked",
         "Valid To (GMT)": "9999.12.31",
-        "Full CRL Issued By This CA": (
-            "" if partitioned_crl else "http://ca.example/crls/crl.crl"
+        "JSON Array of All Full CRL URLs": (
+            "" if partitioned_crl else json.dumps(["http://ca.example/crls/crl.crl"])
         ),
         "JSON Array of Partitioned CRLs": (
             json.dumps(["http://ca.example/crls/crl.crl"]) if partitioned_crl else ""
@@ -281,10 +281,10 @@ def test_revocation_manager_revoked_no_reason_code():
     info = manager.get_revocation_info(cert)
     assert info.status == "Yes"
     assert info.date == _CURRENT_TIME.isoformat()
-    assert info.reason == "N/A"
+    assert info.reason == "unspecified"
 
     assert statistics.INSTANCE.timely_revoked_cert_count == 1
-    assert all(c == 0 for c in statistics.INSTANCE.cert_count_by_revocation_reason_code)
+    assert statistics.INSTANCE.cert_count_by_revocation_reason_code["unspecified"] == 1
 
 
 def test_revocation_manager_revoked_partitioned():
